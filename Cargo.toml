@@ -4,12 +4,25 @@ version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "rust64"
+test = false
+bench = false
 
 [dependencies]
 panic-halt = "0.2.0"
+ufmt = "0.1.0"
 embedded-hal = "0.2"
-arduino-hal = { git = "https://github.com/Rahix/avr-hal.git", features = ["arduino-nano"]}
-ufmt = "0.2.0"
+arduino-hal = { git = "https://github.com/Rahix/avr-hal.git", rev="7dfa6d322b9df98b2d98afe0e14a97afe0187ac1", features = ["arduino-nano"]}
+
+[profile.dev]
+panic = "abort"
+lto = true
+opt-level = "s"
 
 [profile.release]
+panic = "abort"
+codegen-units = 1
+debug = true
 lto = true
+opt-level = "s"
