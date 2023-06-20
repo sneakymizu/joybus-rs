@@ -14,6 +14,7 @@ panic-halt = "0.2.0"
 ufmt = "0.1.0"
 embedded-hal = "0.2"
 arduino-hal = { git = "https://github.com/Rahix/avr-hal.git", rev="7dfa6d322b9df98b2d98afe0e14a97afe0187ac1", features = ["arduino-nano"]}
+avr-device = "0.5"
 
 [profile.dev]
 panic = "abort"
