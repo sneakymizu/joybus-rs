@@ -2,26 +2,57 @@
 #![no_main]
 #![feature(abi_avr_interrupt)]
 
-use core::sync::atomic::{AtomicBool, Ordering};
+use avr_device::interrupt::Mutex;
+use arduino_hal::prelude::*;
+use arduino_hal::port::mode::{Input, Output, PullUp};
+use arduino_hal::port::{Pin, PinOps};
 use panic_halt as _;
+use ufmt::{uwriteln};
 
-static PIN_CHANGED: AtomicBool = AtomicBool::new(false);
 
-#[avr_device::interrupt(atmega328p)]
-fn PCINT2(){
-    PIN_CHANGED.store(true, Ordering::SeqCst);
+fn send_poll_signal<PIN: PinOps>(pin: &mut Pin<Output, PIN>){
+    pin.set_high();
+}
+fn read_poll_data<PIN: PinOps>(pin: &Pin<Input<PullUp>, PIN>){
+    pin.is_high();
+    pin.is_low();
 }
 
 #[arduino_hal::entry]
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
-        // Enable the PCINT2 pin change interrupt
-    dp.EXINT.pcicr.write(|w| unsafe { w.bits(0b100) });
+    let pins = arduino_hal::pins!(dp);
+    let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
+    // Digital pin 13 is also connected to an onboard LED marked "L"
+    let mut led_pin = pins.d13.into_output();
+    let mut data_pin = pins.a0.into_output();
+    led_pin.set_high();
+    loop {
+        data_pin.send_bits(7);
+        //data_pin.take().into_output().send_bits(8);
+        //data_pin.as_ptr().into_pull_up_input().read_bits();
+        led_pin.toggle();
+        arduino_hal::delay_ms(200);
+        led_pin.toggle();
+        arduino_hal::delay_ms(200);
+        uwriteln!(&mut serial, "Should read {}", 1).void_unwrap();
+    }
+}
 
-    // Enable pin change interrupts on PCINT18 which is pin PD2 (= d2)
-    dp.EXINT.pcmsk2.write(|w| w.bits(0b100));
-    
-    //From this point on an interrupt can happen
-    unsafe { avr_device::interrupt::enable() };
-    loop {}
+trait SendN64Bits{
+    fn send_bits(&mut self, data: u8);
+}
+trait RecvN64Bits{
+    fn read_bits(&self, )->u8;
+}
+
+impl<PIN: PinOps> SendN64Bits for Pin<Output, PIN>{
+    fn send_bits(&mut self, data: u8) {
+        todo!()
+    }
+}
+impl<PIN: PinOps> RecvN64Bits for Pin<Input<PullUp>, PIN>{
+    fn read_bits(&self, ) -> u8 {
+        todo!()
+    }
 }
