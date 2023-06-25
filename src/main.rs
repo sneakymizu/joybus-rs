@@ -3,7 +3,6 @@
 
 use core::mem::size_of;
 use arduino_hal::clock::Clock;
-use arduino_hal::hal::Atmega;
 use arduino_hal::hal::port::{PD0, PD1};
 use arduino_hal::prelude::*;
 use arduino_hal::port::mode::{AnyInput, Input, Output, PullUp};
@@ -45,20 +44,14 @@ fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
     unsafe{ SERIAL = Some(arduino_hal::default_serial!(dp, pins, 57600) as SerialType)};
-    uwriteln!(unsafe{SERIAL.as_mut().unwrap()}, "Lets go").void_unwrap();
     // Digital pin 13 is also connected to an onboard LED marked "L"
     let mut led_pin = pins.d13.into_output();
-    let mut data_pin = pins.a0.into_output();
-    data_pin.set_low();
+    let mut read_write_pin = SwitchablePin::from_output(pins.d6.into_output());
     let mut tmr = dp.TC0;
     configure_timer(&mut tmr);
     led_pin.set_high();
-    tmr.tcnt0.write(|w| w.bits(0)); // reset timer
+    uwriteln!(unsafe{SERIAL.as_mut().unwrap()}, "Lets go").void_unwrap();
     loop {
-        let val = unsafe{tmr.tifr0.read().ocf0a()};
-        if val.bit_is_set(){
-            data_pin.toggle();
-        }
         //data_pin.set_high();
         //data_pin.set_low();
         //data_pin.set_high();
