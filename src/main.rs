@@ -53,8 +53,9 @@ fn main() -> ! {
     let mut tmr = dp.TC0;
     configure_timer(&mut tmr);
     led_pin.set_high();
+    tmr.tcnt0.write(|w| w.bits(0)); // reset timer
     loop {
-        let val = unsafe{tmr.tifr0.read().tov0()};
+        let val = unsafe{tmr.tifr0.read().ocf0a()};
         if val.bit_is_set(){
             data_pin.toggle();
         }
@@ -81,13 +82,11 @@ fn main() -> ! {
     }
 }
 fn configure_timer(tmr: &mut TC0){
-    const freq: u32 = arduino_hal::DefaultClock::FREQ;
-    const CLOCK_SOURCE: CS0_A = CS0_A::PRESCALE_64;
-    const tcnt0_value: u8 = 255;
-    tmr.tccr0a.write(|w| w.wgm0().bits(0b00));
-    tmr.tccr0b.write(|w| w.wgm02().clear_bit().cs0().variant(CLOCK_SOURCE));
-    tmr.tcnt0.write(|w| w.bits(tcnt0_value))
-    //tmr.timsk0.write(|w| w.ocie0a().set_bit());
+    // setup fast pwm set on bottom clear on compare, varray high length by setting ocr0a via interrupt
+    let ocr0a_value: u8 = 255; // 1MHz for 1us
+    tmr.tccr0a.write(|w| w.com0a().bits(0b10).wgm0().bits(0b11));
+    tmr.tccr0b.write(|w| w.wgm02().clear_bit().cs0().variant(CS0_A::PRESCALE_64));
+    tmr.ocr0a.write(|w|w.bits(ocr0a_value));
 }
 
 trait SendN64Bits<B>{
