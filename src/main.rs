@@ -2,6 +2,7 @@
 #![no_main]
 
 use core::mem::size_of;
+use core::sync::atomic::{AtomicU8, Ordering};
 use arduino_hal::clock::Clock;
 use arduino_hal::hal::port::{PD0, PD1, PD6};
 use arduino_hal::prelude::*;
@@ -12,6 +13,8 @@ use avr_device::atmega328p::tc0::tccr0b::CS0_A;
 use avr_device::atmega328p::{TC0, USART0};
 use panic_halt as _;
 use ufmt::uwriteln;
+
+static NEXT_COMPARE: AtomicU8 = AtomicU8::new(0);
 
 struct SwitchablePin<'a, PIN: PinOps> {
     read_pin: Option<Pin<Input<PullUp>, PIN>>,
@@ -80,16 +83,25 @@ fn main() -> ! {
 }
 trait N64BitGeneration {
     fn configure(&self);
+    fn set_high(&self);
+    fn set_low(&self);
 }
 impl N64BitGeneration for TC0{
     fn configure(&self) {
         // setup fast pwm set on bottom clear on compare, varray high length by setting ocr0a via interrupt
-        let ocr0a_value: u8 = 255; // 1MHz for 1us
+        let ocr0a_value: u8 = 16; // 1MHz for 1us
         self.tccr0a.write(|w| w.com0a().bits(0b11).wgm0().bits(0b11));
         self.tccr0b.write(|w| w.wgm02().clear_bit().cs0().variant(CS0_A::PRESCALE_64));
         self.ocr0a.write(|w|w.bits(ocr0a_value));
     }
+    fn set_high(&self){
+        NEXT_COMPARE.store(255, Ordering::SeqCst);
+    }
+    fn set_low(&self){
+        NEXT_COMPARE.store(0, Ordering::SeqCst);
+    }
 }
+
 trait N64Communication<Bits>{
     fn send_bits(&mut self, data: Bits);
     fn recv_bits(&mut self)->u32;
@@ -98,37 +110,6 @@ impl<'a> N64Communication<u8> for SwitchablePin<'a, PD6>{
     fn send_bits(&mut self, data: u8){
     }
     fn recv_bits(&mut self)->u32{
-        0
-    }
-}
-
-trait SendN64Bits<B>{
-    fn send_bits(&mut self, data: B);
-}
-trait RecvN64Bits{
-    fn read_bits(&self)->u32;
-}
-
-impl<PIN: PinOps> SendN64Bits<u8> for Pin<Output, PIN>{
-    fn send_bits(&mut self, data: u8) {
-        //let se =unsafe{SERIAL.as_mut().unwrap()};
-        let end_of_loop = size_of::<u8>()*8;
-        //uwriteln!(se, "Start loop to {}", end_of_loop).void_unwrap();
-        for count in 0..=end_of_loop{
-            let val = (data >> count & 1) != 0;
-            //uwriteln!(se, "Should send {} as {} bit", val, count).void_unwrap();
-            if val {
-                self.set_high();
-            }else{
-                self.set_low();
-            }
-        }
-    }
-}
-impl<PIN: PinOps> RecvN64Bits for Pin<Input<PullUp>, PIN>{
-    fn read_bits(&self) -> u32 {
-        self.is_high();
-        self.is_low();
         0
     }
 }
