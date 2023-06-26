@@ -91,7 +91,7 @@ impl N64BitGeneration for TC0{
         // setup fast pwm set on bottom clear on compare, varray high length by setting ocr0a via interrupt
         let ocr0a_value: u8 = 16; // 1MHz for 1us
         self.tccr0a.write(|w| w.com0a().bits(0b11).wgm0().bits(0b11));
-        self.tccr0b.write(|w| w.wgm02().clear_bit().cs0().variant(CS0_A::PRESCALE_64));
+        self.tccr0b.write(|w| w.wgm02().clear_bit().cs0().variant(CS0_A::DIRECT));
         self.ocr0a.write(|w|w.bits(ocr0a_value));
     }
     fn set_high(&self){
