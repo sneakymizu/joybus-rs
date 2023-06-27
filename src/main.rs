@@ -30,25 +30,11 @@ fn main() -> ! {
     uwriteln!(unsafe{SERIAL.as_mut().unwrap()}, "Lets go").void_unwrap();
     led_pin.set_low();
     loop {
-        //data_pin.set_high();
-        //data_pin.set_low();
-        //data_pin.set_high();
-        //data_pin.set_low();
-        //match data_pin.as_output(){
-        //    Some(pin)=>{
-        //        pin.send_bits(1+4+16+64);
-        //        pin.set_low();
-        //    },
-        //    None=>()
-        //};
-        //let read_bits = match data_pin.as_input(){
-        //    Some(pin)=>pin.read_bits(),
-        //    None=>0
-        //};
-        //led_pin.toggle();
-        //arduino_hal::delay_ms(200);
-        //led_pin.toggle();
+        let res = read_write_pin.send_recv(0b11);
+        match res{
+            Ok(res) => uwriteln!(unsafe{SERIAL.as_mut().unwrap()}, "Should read {}", res).void_unwrap(),
+            Err(_) => uwriteln!(unsafe{SERIAL.as_mut().unwrap()}, "Failed reading").void_unwrap(),
+        };
         arduino_hal::delay_ms(100);
-        //uwriteln!(&mut SERIAL, "Should read {}", read_bits).void_unwrap();
     }
 }
