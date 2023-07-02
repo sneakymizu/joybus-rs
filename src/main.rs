@@ -6,8 +6,10 @@ use panic_halt as _;
 use ufmt::uwriteln;
 
 use n64_controller::N64ControllerConnection;
+use crate::same_pin_io::SwitchablePin;
 
 mod n64_controller;
+mod same_pin_io;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -18,7 +20,8 @@ fn main() -> ! {
     led_pin.set_high();
 
     let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
-    let mut read_write_pin = N64ControllerConnection::from_pin(pins.d6.into_output(), &dp.TC0);
+    let pin = SwitchablePin::from_output(pins.d6.into_output());
+    let mut read_write_pin = N64ControllerConnection::from_pin(pin, &dp.TC0);
 
     uwriteln!(serial, "Lets go").void_unwrap();
     led_pin.set_low();

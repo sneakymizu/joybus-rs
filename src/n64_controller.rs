@@ -1,9 +1,9 @@
 use core::mem::size_of;
 
-use arduino_hal::port::mode::{Input, Output, PullUp};
-use arduino_hal::port::{Pin, PinOps};
+use arduino_hal::port::{PinOps};
 use avr_device::atmega328p::tc0::tccr0b::CS0_A;
 use avr_device::atmega328p::TC0;
+use crate::same_pin_io::SwitchablePin;
 
 pub struct N64ControllerConnection<'a, PIN: PinOps, TIM> {
     connected_pin: SwitchablePin<PIN>,
@@ -11,10 +11,10 @@ pub struct N64ControllerConnection<'a, PIN: PinOps, TIM> {
 }
 
 impl<'a, PIN: PinOps, TIM> N64ControllerConnection<'a, PIN, TIM> {
-    pub fn from_pin(pin: Pin<Output, PIN>, timer: &'a dyn N64BitGeneration<TIM>) -> Self {
+    pub fn from_pin(pin: SwitchablePin<PIN>, timer: &'a dyn N64BitGeneration<TIM>) -> Self {
         timer.configure();
         N64ControllerConnection {
-            connected_pin: SwitchablePin::from_output(pin),
+            connected_pin: pin,
             timer,
         }
     }
@@ -42,32 +42,6 @@ impl<'a, PIN: PinOps, TIM> N64ControllerConnection<'a, PIN, TIM> {
             return Err(());
         }
         Ok(res)
-    }
-}
-
-struct SwitchablePin<PIN: PinOps> {
-    read_pin: Option<Pin<Input<PullUp>, PIN>>,
-    write_pin: Option<Pin<Output, PIN>>,
-}
-
-impl<PIN: PinOps> SwitchablePin<PIN> {
-    fn from_output(pin: Pin<Output, PIN>) -> Self {
-        SwitchablePin {
-            read_pin: None,
-            write_pin: Some(pin),
-        }
-    }
-    fn as_output(&mut self) -> Option<&mut Pin<Output, PIN>> {
-        if self.read_pin.is_some() {
-            self.write_pin = Some(self.read_pin.take().unwrap().into_output())
-        }
-        self.write_pin.as_mut()
-    }
-    fn as_input(&mut self) -> Option<&Pin<Input<PullUp>, PIN>> {
-        if self.write_pin.is_some() {
-            self.read_pin = Some(self.write_pin.take().unwrap().into_pull_up_input());
-        }
-        self.read_pin.as_ref()
     }
 }
 
