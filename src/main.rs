@@ -21,7 +21,7 @@ fn main() -> ! {
 
     let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
     let pin = SwitchablePin::from_output(pins.d6.into_output());
-    let mut read_write_pin = N64ControllerConnection::from_pin(pin, &dp.TC0);
+    let mut read_write_pin = N64ControllerConnection::from_pin(pin);
 
     uwriteln!(serial, "Lets go").void_unwrap();
     led_pin.set_low();
