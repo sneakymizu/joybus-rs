@@ -6,13 +6,13 @@ use avr_device::atmega328p::tc0::tccr0b::CS0_A;
 use avr_device::atmega328p::TC0;
 use avr_device::atmega328p::tc0::{TCCR0B, TIFR0};
 
-pub struct N64ControllerConnection<'a, PIN: PinOps, TC, TV> {
+pub struct N64ControllerConnection<'a, PIN: PinOps> {
     connected_pin: SwitchablePin<PIN>,
-    timer: &'a dyn N64BitGeneration<TC, TV>,
+    timer: &'a dyn N64BitGeneration,
 }
 
-impl<'a, PIN: PinOps, TC, TV> N64ControllerConnection<'a, PIN, TC, TV> {
-    pub fn from_pin(pin: Pin<Output, PIN>, timer: &'a dyn N64BitGeneration<TC, TV>) -> Self {
+impl<'a, PIN: PinOps> N64ControllerConnection<'a, PIN> {
+    pub fn from_pin(pin: Pin<Output, PIN>, timer: &'a dyn N64BitGeneration) -> Self {
         timer.configure();
         N64ControllerConnection {
             connected_pin: SwitchablePin::from_output(pin),
@@ -21,8 +21,8 @@ impl<'a, PIN: PinOps, TC, TV> N64ControllerConnection<'a, PIN, TC, TV> {
     }
     pub fn send_recv(&mut self, send_bits: u8) -> Result<u32, ()> {
         let mut res: u32 = 0;
-        let timer: Timer<TCCR0B,TIFR0> = self.timer.timer();
-        if let Some(output_pin) = self.connected_pin.as_output().as_mut() {
+        let timer = self.timer.timer();
+        if let Some(output_pin) = self.connected_pin.as_output() {
             for bit in 0..size_of::<u8>() * 8 {
                 output_pin.set_low();
                 let (high, low) = match send_bits >> bit {
@@ -75,15 +75,15 @@ impl<PIN: PinOps> SwitchablePin<PIN> {
     }
 }
 
-pub trait N64BitGeneration<TC, TV> {
+pub trait N64BitGeneration {
     fn configure(&self);
-    fn timer(&self) -> Timer<TC, TV>;
+    fn timer(&self) -> Timer;
     //fn ticks(&self, wait_ticks: u8);
     //fn disable(&self);
     //fn enable(&self);
 }
 
-impl N64BitGeneration<TCCR0B, TIFR0> for TC0 {
+impl N64BitGeneration for TC0 {
     fn configure(&self) {
         // 1MHz for 1us
         let ocr0a_value: u8 = 16;
@@ -92,7 +92,7 @@ impl N64BitGeneration<TCCR0B, TIFR0> for TC0 {
         self.tccr0b.write(|w| w.wgm02().clear_bit());
         self.ocr0a.write(|w| w.bits(ocr0a_value));
     }
-    fn timer(&self) -> Timer<TCCR0B, TIFR0> {
+    fn timer(&self) -> Timer {
         self.tcnt0.write(|w| w.bits(0));
         self.tccr0b.write(|w| w.cs0().variant(CS0_A::DIRECT));
         Timer{
@@ -102,20 +102,42 @@ impl N64BitGeneration<TCCR0B, TIFR0> for TC0 {
     }
 }
 
-struct Timer<'a, TC,TV>{
-    timer_control: &'a TC,
-    timer_value: &'a TV,
+pub struct Timer<'a>{
+    timer_control: &'a dyn TimerStop,
+    timer_value: &'a dyn TimerHit,
 }
-impl<'a> Timer<'a, TCCR0B, TIFR0>{
+impl<'a> Timer<'a>{
     fn ticks(&self, wait_ticks: u8){
         for _ in 0..wait_ticks {
-            while self.timer_value.read().ocf0a().bit_is_clear() {}
-            self.timer_value.write(|w| w.ocf0a().set_bit());
+            while !self.timer_value.is_set(){}
+            self.timer_value.reset();
         }
     }
 }
-impl<'a> Drop for Timer<'a, TCCR0B, TIFR0>{
+impl<'a> Drop for Timer<'a>{
     fn drop(&mut self) {
-        self.timer_control.write(|w| w.cs0().variant(CS0_A::NO_CLOCK));
+        self.timer_control.stop();
     }
+}
+
+impl TimerHit for TIFR0{
+    fn is_set(&self) -> bool {
+        return self.read().ocf0a().bit_is_set();
+    }
+
+    fn reset(&self) {
+        self.write(|w| w.ocf0a().set_bit());
+    }
+}
+impl TimerStop for TCCR0B{
+    fn stop(&self) {
+        self.write(|w| w.cs0().variant(CS0_A::NO_CLOCK));
+    }
+}
+trait TimerHit {
+    fn is_set(&self)->bool;
+    fn reset(&self);
+}
+trait TimerStop {
+    fn stop(&self);
 }
