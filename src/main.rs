@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
 
+extern crate alloc;
+
 use arduino_hal::prelude::*;
 use panic_halt as _;
 use ufmt::uwriteln;
@@ -10,6 +12,7 @@ use crate::same_pin_io::SwitchablePin;
 
 mod n64_controller;
 mod same_pin_io;
+mod ticker_timer;
 
 #[arduino_hal::entry]
 fn main() -> ! {
