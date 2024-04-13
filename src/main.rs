@@ -1,35 +1,124 @@
 #![no_std]
 #![no_main]
+#![feature(asm_experimental_arch)]
 
-use core::mem::size_of;
-use arduino_hal::prelude::*;
-use arduino_hal::port::mode::{Input, Output, PullUp};
-use arduino_hal::port::{Pin, PinOps};
+use crate::same_pin_io::SwitchablePin;
+use arduino_hal::port::{
+    mode::{Input, Output, PullUp},
+    Pin, PinOps,
+};
+use core::arch::asm;
 use panic_halt as _;
 use ufmt::uwriteln;
 
-struct SwitchablePin<PIN: PinOps>{
-    read_pin: Option<Pin<Input<PullUp>, PIN>>,
-    write_pin: Option<Pin<Output, PIN>>
+mod same_pin_io;
+
+const READ_COMMAND: u16 = 0b11;
+const READ_COMMAND_LENGTH: u8 = 9;
+const STATE_RESPONSE_LENGTH: u8 = 32;
+
+fn wait_1us() {
+    // these are magic... changing any instruction will result in unexpected faster execution
+    unsafe {
+        asm!(
+            "ldi {RTMP}, 3",
+            "1:",
+            "dec {RTMP}",
+            "brne 1b",
+            RTMP = in(reg) 4u8,
+        );
+    }
 }
-impl<PIN: PinOps> SwitchablePin<PIN>{
-    fn from_output(pin: Pin<Output, PIN>) -> Self{
-        SwitchablePin {
-            read_pin: None,
-            write_pin: Some(pin),
-        }
+fn wait_2us() {
+    // this does not need to be as precise. Reading in the middle of a bit should be
+    // sufficient
+    wait_1us();
+    wait_1us();
+}
+fn wait_3us() {
+    // these are magic... changing any instruction will result in unexpected faster execution
+    unsafe {
+        asm!(
+            "ldi {RTMP}, 13",
+            "1:",
+            "dec {RTMP}",
+            "brne 1b",
+            RTMP = in(reg) 15u8,
+        )
     }
-    fn as_output(&mut self)->Option<&mut Pin<Output, PIN>>{
-        if self.read_pin.is_some(){
-            self.write_pin = Some(self.read_pin.take().unwrap().into_output())
+}
+
+struct N64Communicator<PIN: PinOps>(SwitchablePin<PIN>);
+impl<PIN: PinOps> N64Communicator<PIN> {
+    fn new(mut pin: SwitchablePin<PIN>) -> Self {
+        if let Some(pin) = pin.as_output() {
+            pin.set_high();
         }
-        self.write_pin.as_mut()
+        Self(pin)
     }
-    fn as_input(&mut self)->Option<&mut Pin<Input<PullUp>, PIN>>{
-        if self.write_pin.is_some(){
-            self.read_pin = Some(self.write_pin.take().unwrap().into_pull_up_input());
+    fn read(&mut self) -> Result<u32, u8> {
+        let mut output_pin = self.0.as_output().ok_or(2u8)?;
+        N64PollsignalSender::new(&mut output_pin).send()?;
+        let input_pin = self.0.as_input().ok_or(2u8)?;
+        Ok(N64ResponseReceiver::new(&input_pin).read()?)
+    }
+}
+
+type OutputPin<PIN> = Pin<Output, PIN>;
+struct N64PollsignalSender<'a, PIN> {
+    pin: &'a mut OutputPin<PIN>,
+}
+impl<'a, PIN: PinOps> N64PollsignalSender<'a, PIN> {
+    pub fn new(pin: &'a mut OutputPin<PIN>) -> Self {
+        N64PollsignalSender { pin }
+    }
+    pub fn send(&mut self) -> Result<(), u8> {
+        for i in (0..READ_COMMAND_LENGTH).rev() {
+            if 1 << i & READ_COMMAND > 0 {
+                self.send_1()?;
+            } else {
+                self.send_0()?;
+            }
         }
-        self.read_pin.as_mut()
+        Ok(())
+    }
+    fn send_0(&mut self) -> Result<(), u8> {
+        self.pin.set_low();
+        wait_3us();
+        self.pin.set_high();
+        wait_1us();
+        Ok(())
+    }
+    fn send_1(&mut self) -> Result<(), u8> {
+        self.pin.set_low();
+        wait_1us();
+        self.pin.set_high();
+        wait_3us();
+        Ok(())
+    }
+}
+
+type InputPin<PIN> = Pin<Input<PullUp>, PIN>;
+struct N64ResponseReceiver<'a, PIN> {
+    pin: &'a InputPin<PIN>,
+}
+impl<'a, PIN: PinOps> N64ResponseReceiver<'a, PIN> {
+    pub fn new(pin: &'a InputPin<PIN>) -> Self {
+        N64ResponseReceiver { pin }
+    }
+    pub fn read(&mut self) -> Result<u32, u8> {
+        let mut res: u32 = 0;
+        for bit in 0..STATE_RESPONSE_LENGTH {
+            wait_2us();
+            res |= (self.pin.is_high() as u32) << bit;
+            wait_2us();
+        }
+        wait_2us();
+        if self.pin.is_low() {
+            Err(3u8)
+        } else {
+            Ok(res)
+        }
     }
 }
 
@@ -37,50 +126,21 @@ impl<PIN: PinOps> SwitchablePin<PIN>{
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
-    let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
     // Digital pin 13 is also connected to an onboard LED marked "L"
     let mut led_pin = pins.d13.into_output();
-    let mut data_pin = SwitchablePin::from_output(pins.a0.into_output());
     led_pin.set_high();
+
+    let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
+    let pin = SwitchablePin::from_output(pins.d6.into_output());
+    let mut n64 = N64Communicator::new(pin);
+
+    uwriteln!(serial, "Lets go\r").unwrap();
+    led_pin.set_low();
     loop {
-        match data_pin.as_output(){
-            Some(pin)=>pin.send_bits(3),
-            None=>()
+        let _write = match n64.read() {
+            Ok(num) => uwriteln!(serial, "Have read {}\r", num),
+            Err(e) => uwriteln!(serial, "Error occured {}\r", e),
         };
-        let read_bits = match data_pin.as_input(){
-            Some(pin)=>pin.read_bits(),
-            None=>0
-        };
-        led_pin.toggle();
-        arduino_hal::delay_ms(200);
-        led_pin.toggle();
-        arduino_hal::delay_ms(200);
-        uwriteln!(&mut serial, "Should read {}", read_bits).void_unwrap();
-    }
-}
-
-trait SendN64Bits{
-    fn send_bits(&mut self, data: usize);
-}
-trait RecvN64Bits{
-    fn read_bits(&self)->u32;
-}
-
-impl<PIN: PinOps> SendN64Bits for Pin<Output, PIN>{
-    fn send_bits(&mut self, data: usize) {
-        for count in 0..=size_of::<usize>()*8{
-            if data & 1<<count != 0{
-                self.set_high();
-            }else{
-                self.set_low();
-            }
-        }
-    }
-}
-impl<PIN: PinOps> RecvN64Bits for Pin<Input<PullUp>, PIN>{
-    fn read_bits(&self) -> u32 {
-        self.is_high();
-        self.is_low();
-        0
+        arduino_hal::delay_ms(1);
     }
 }
