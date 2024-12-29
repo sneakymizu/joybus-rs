@@ -3,18 +3,11 @@
 #![feature(asm_experimental_arch)]
 #![feature(abi_avr_interrupt)]
 
-use crate::same_pin_io::SwitchablePin;
-use arduino_hal::{pac::{tc0::tifr0::OCF0A_W, TC0}, port::{
-    mode::{Input, Output, PullUp},
-    Pin, PinOps,
-}, Peripherals};
-use avr_device::{generic::Reg, interrupt::{CriticalSection, Mutex}};
-use embedded_hal::timer::Periodic;
-use core::{arch::asm, mem};
+use arduino_hal::pac::tc0::TIFR0;
+use avr_device::generic::{Readable, Reg, RegisterSpec, Writable};
 use panic_halt as _;
-use ufmt::uwriteln;
 
-mod same_pin_io;
+//mod same_pin_io;
 
 const READ_COMMAND: u16 = 0b11;
 const READ_COMMAND_LENGTH: u8 = 9;
@@ -47,7 +40,40 @@ fn setup_interrupt_data(dp: &Peripherals){
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
     }
 }
- */
+*/
+
+fn write_on_tick<REG: Readable + Writable>(timer: &impl Timing, bit_sequence: u16, out: &Reg<REG>)
+where
+    REG: RegisterSpec<Ux = u8>,
+{
+    if let Some(_t) = timer.with_int() {
+        out.modify(|r, w| unsafe {
+            let dat = r.bits();
+            w.bits(dat ^ 2)
+        });
+    }
+}
+
+trait Timing {
+    fn with_int(&self) -> Option<TimedSection>;
+}
+
+struct Tim<'a>(&'a TIFR0);
+struct TimedSection<'a>(&'a TIFR0);
+impl<'a> Drop for TimedSection<'a> {
+    fn drop(&mut self) {
+        self.0.write(|w| w.ocf0a().set_bit());
+    }
+}
+impl<'a> Timing for Tim<'a> {
+    fn with_int(&self) -> Option<TimedSection> {
+        if self.0.read().ocf0a().bit_is_set() {
+            Some(TimedSection(&self.0))
+        } else {
+            None
+        }
+    }
+}
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -56,24 +82,24 @@ fn main() -> ! {
 
     // Digital pin 13 is also connected to an onboard LED marked "L"
     let mut led_pin = pins.d13.into_output_high();
-    
+
     // D6 is OCA0 which will be toggled by timer0
     pins.d6.into_output_high();
     arduino_hal::delay_ms(1000);
-    dp.TC0.tccr0a.write(|w|w.wgm0().pwm_fast().com0a().match_toggle());
-    dp.TC0.tccr0b.write(|w|w.cs0().prescale_8().wgm02().set_bit()); // set wgm02 for OCRA = top
-    dp.TC0.ocr0a.write(|w|w.bits(5)); // set OCRA = 15 for 1µs tick or prescale 8 to have each digit be 0.5 µs (starting at 0=0.5µ 1=1µ..)
-    
+    dp.TC0
+        .tccr0a
+        .write(|w| w.wgm0().pwm_fast().com0a().match_toggle());
+    dp.TC0
+        .tccr0b
+        .write(|w| w.cs0().prescale_8().wgm02().set_bit()); // set wgm02 for OCRA = top
+    dp.TC0.ocr0a.write(|w| w.bits(5)); // set OCRA = 15 for 1µs tick or prescale 8 to have each digit be 0.5 µs (starting at 0=0.5µ 1=1µ..)
 
     //let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
     //uwriteln!(serial, "Lets go\r").unwrap();
 
     led_pin.set_low();
+    let tim = Tim(&dp.TC0.tifr0);
     loop {
-        if dp.TC0.tifr0.read().ocf0a().bit_is_set(){
-            dp.TC0.ocr0a.modify(|r,w|{
-                w.bits(r.bits()^2)
-            });
-        }
+        write_on_tick(&tim, READ_COMMAND, &dp.TC0.ocr0a);
     }
 }
