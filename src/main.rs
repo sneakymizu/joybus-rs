@@ -30,55 +30,85 @@ mod atmega328p_read{
     pub struct Reader;
     impl PollN64 for Reader{
         fn read(&self)->Result<N64ControllerState, ReadError>{
+            let bit_counter=32;
+            let mut read_loop_counter: u8 = 4;
+            let reg0: u8;
+            let reg1: u8;
+            let reg2: u8;
+            let reg3: u8;
+            let zeros:u8 = 7;
+            let ones:u8 = 2;
             unsafe{
-                let zeros:u8 = 7;
-                let ones:u8 = 2;
                 asm!{
                     //poll
                     "sbi {port}, {pin}", // PORTB Pin "6"
                     "sbi {ddr}, {pin}", // DDRB Pin "6"
                     "0:",
                         "cbi {port}, {pin}",
-                        "ldi {rtmp}, 15",
+                        "ldi {inner_loop_counter}, 15",
                         "10:",
-                            "dec {rtmp}",
+                            "dec {inner_loop_counter}",
                             "brne 10b",
                         "nop",
                         "sbi {port}, {pin}",
-                        "ldi {rtmp}, 3",
+                        "ldi {inner_loop_counter}, 3",
                         "11:",
-                            "dec {rtmp}",
+                            "dec {inner_loop_counter}",
                             "brne 11b",
                         "nop",
                         "nop",
                         "dec {zeros}",
                         "brne 0b",
                     "1:",
-                        "cbi {port}, {pin}",
-                        "ldi {rtmp}, 4",
+                        "cbi {port}, {pin}", // 2
+                        "ldi {inner_loop_counter}, 4", // 1
                         "10:",
-                            "dec {rtmp}",
-                            "brne 10b",
+                            "dec {inner_loop_counter}", // 1
+                            "brne 10b", // 1/2
                         "nop",
                         "nop",
                         "sbi {port}, {pin}",
-                        "ldi {rtmp}, 14",
+                        "ldi {inner_loop_counter}, 14",
                         "11:",
-                            "dec {rtmp}",
+                            "dec {inner_loop_counter}",
                             "brne 11b",
                         "nop",
                         "dec {ones}",
                         "brne 1b",
-                    "nop",
+                    "nop", // 1
                     //switch to read
-                    "sbi {port}, {pin}",
-                    "cbi {ddr}, {pin}",
+                    "sbi {port}, {pin}", // 1
+                    "cbi {ddr}, {pin}", // 1
+                    "ldi {read_loop_counter}, 4", // 1
+                    "0:",
+                        // wait 1µs
+                        "ldi {inner_loop_counter}, 4", // 1
+                        "10:",
+                            "dec {inner_loop_counter}", // 1
+                            "brne 10b", // 1/2
+                        "dec {read_loop_counter}",
+                        // 15 cycles 16 is 1µs
+                        "sbrs {port}, {pin}", // 1 if not set 2 if set
+                        "jmp 0b", // 3 which is equiv to sbi+cbi+lbi so we should get to sbrs with 15 cylces again
+                        // sbrs takes 2 cycles so "high" starts with 1
+                        "cpi {read_loop_counter}, 3", // 1
+                        "brlt 0f", // 1/2
+                        "jmp 1f",
+                        "0:",
+                            "add {reg0}, 1",
+                        //"1:",
                     zeros=in(reg) zeros,
                     ones=in(reg) ones,
-                    rtmp=out(reg)_,
+                    inner_loop_counter=out(reg) _,
+                    read_loop_counter=inout(reg) read_loop_counter,
+                    bit_counter=in(reg) bit_counter,
                     port=const 0x0b,
                     ddr=const 0x0a,
-                    pin=const 0x06
+                    pin=const 0x06, // should be the same for port, ddr and pmsk
+                    reg0=out(reg) reg0,
+                    reg1=out(reg) reg1,
+                    reg2=out(reg) reg2,
+                    reg3=out(reg) reg3,
                 }
             }
             Ok(N64ControllerState(1))
