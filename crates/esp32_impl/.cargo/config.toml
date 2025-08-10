@@ -14,3 +14,6 @@ target = "xtensa-esp32-none-elf"
 
 [unstable]
 build-std = ["alloc", "core"]
+
+[target.'(cfg(any(target_arch="xtensa")))']
+runner = "espflash flash --monitor"
