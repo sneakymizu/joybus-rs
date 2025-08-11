@@ -7,7 +7,7 @@
 )]
 
 use embassy_executor::{task, Spawner};
-use embassy_time::{Delay, Timer};
+use embassy_time::{Delay, Duration, Timer};
 use embedded_hal::delay::DelayNs;
 use esp_hal::clock::CpuClock;
 use esp_hal::gpio::Flex;
@@ -15,11 +15,11 @@ use esp_hal::gpio::Level;
 use esp_hal::gpio::Output;
 use esp_hal::gpio::OutputConfig;
 use esp_hal::gpio::Pull;
-use esp_hal::time::Duration;
 use esp_hal::timer::timg::TimerGroup;
 use esp_hal::timer::PeriodicTimer;
 
 use log::info;
+use xtensa_lx::timer::delay;
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -55,14 +55,14 @@ async fn run(spawner: Spawner) {
 
     esp_println::logger::init_logger_from_env();
 
-    let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
+    let config = esp_hal::Config::default().with_cpu_clock(CpuClock::_240MHz);
     let peripherals = esp_hal::init(config);
 
     esp_alloc::heap_allocator!(size: 64 * 1024);
 
-    //let timer0 = TimerGroup::new(peripherals.TIMG1);
-    //esp_hal_embassy::init(timer0.timer0);
-    let timer_group = TimerGroup::new(peripherals.TIMG0);
+    let timer0 = TimerGroup::new(peripherals.TIMG1);
+    esp_hal_embassy::init(timer0.timer0);
+    //let timer_group = TimerGroup::new(peripherals.TIMG0);
 
     info!("Embassy initialized!");
 
@@ -78,28 +78,23 @@ async fn run(spawner: Spawner) {
 
     let _ = spawner.spawn(s);*/
     let mut pin = my_pin;
-    let mut timer = PeriodicTimer::new(timer_group.timer0);
+    //let mut timer = PeriodicTimer::new(timer_group.timer0);
+    let one_us_with_pin_toggle = 209;
+    let one_us_without_pin_toggle = 244;
     loop {
         for _ in 0..7 {
             pin.set_low();
-            timer.start(Duration::from_micros(3));
-            timer.wait();
-            //Timer::after(Duration::from_micros(3)).await;
+            delay(one_us_without_pin_toggle * 2 + one_us_with_pin_toggle);
             pin.set_high();
-            timer.start(Duration::from_micros(1));
-            timer.wait();
+            delay(one_us_with_pin_toggle);
         }
         for _ in 0..2 {
             pin.set_low();
-            timer.start(Duration::from_micros(1));
-            timer.wait();
+            delay(one_us_with_pin_toggle);
             pin.set_high();
-            timer.start(Duration::from_micros(3));
-            timer.wait();
+            delay(one_us_without_pin_toggle * 2 + one_us_with_pin_toggle);
         }
-        timer.start(Duration::from_secs(1));
-        timer.wait();
-        //Timer::after(Duration::from_secs(1)).await;
+        Timer::after(Duration::from_secs(1)).await;
     }
 }
 
