@@ -30,8 +30,7 @@ mod atmega328p_read{
     pub struct Reader;
     impl PollN64 for Reader{
         fn read(&self)->Result<N64ControllerState, ReadError>{
-            let bit_counter=32;
-            let mut read_loop_counter: u8 = 4;
+            let read_loop_counter: u8 = 4;
             let reg0: u8;
             let reg1: u8;
             let reg2: u8;
@@ -41,8 +40,8 @@ mod atmega328p_read{
             unsafe{
                 asm!{
                     //poll
-                    "sbi {port}, {pin}", // PORTB Pin "6"
-                    "sbi {ddr}, {pin}", // DDRB Pin "6"
+                    "sbi {port}, {pin}", // PORTD Pin "6"
+                    "sbi {ddr}, {pin}", // DDRD Pin "6"
                     "0:",
                         "cbi {port}, {pin}",
                         "ldi {inner_loop_counter}, 15",
@@ -96,12 +95,56 @@ mod atmega328p_read{
                         "jmp 1f",
                         "0:",
                             "add {reg0}, 1",
-                        //"1:",
+                    "1:",
+                        // wait 1µs
+                        "ldi {inner_loop_counter}, 4", // 1
+                        "10:",
+                            "dec {inner_loop_counter}", // 1
+                            "brne 10b", // 1/2
+                        "dec {read_loop_counter}",
+                        // 15 cycles 16 is 1µs
+                        "sbrs {port}, {pin}", // 1 if not set 2 if set
+                        "jmp 0b", // 3 which is equiv to sbi+cbi+lbi so we should get to sbrs with 15 cylces again
+                        // sbrs takes 2 cycles so "high" starts with 1
+                        "cpi {read_loop_counter}, 3", // 1
+                        "brlt 0f", // 1/2
+                        "jmp 2f",
+                        "0:",
+                            "add {reg1}, 1",
+                    "2:",
+                        // wait 1µs
+                        "ldi {inner_loop_counter}, 4", // 1
+                        "10:",
+                            "dec {inner_loop_counter}", // 1
+                            "brne 10b", // 1/2
+                        "dec {read_loop_counter}",
+                        // 15 cycles 16 is 1µs
+                        "sbrs {port}, {pin}", // 1 if not set 2 if set
+                        "jmp 0b", // 3 which is equiv to sbi+cbi+lbi so we should get to sbrs with 15 cylces again
+                        // sbrs takes 2 cycles so "high" starts with 1
+                        "cpi {read_loop_counter}, 3", // 1
+                        "brlt 0f", // 1/2
+                        "jmp 3f",
+                        "0:",
+                            "add {reg2}, 1",
+                    "3:",
+                        // wait 1µs
+                        "ldi {inner_loop_counter}, 4", // 1
+                        "10:",
+                            "dec {inner_loop_counter}", // 1
+                            "brne 10b", // 1/2
+                        "dec {read_loop_counter}",
+                        // 15 cycles 16 is 1µs
+                        "sbrs {port}, {pin}", // 1 if not set 2 if set
+                        "jmp 0b", // 3 which is equiv to sbi+cbi+lbi so we should get to sbrs with 15 cylces again
+                        // sbrs takes 2 cycles so "high" starts with 1
+                        "cpi {read_loop_counter}, 3", // 1
+                        "0:",
+                            "add {reg3}, 1",
                     zeros=in(reg) zeros,
                     ones=in(reg) ones,
                     inner_loop_counter=out(reg) _,
-                    read_loop_counter=inout(reg) read_loop_counter,
-                    bit_counter=in(reg) bit_counter,
+                    read_loop_counter=in(reg) read_loop_counter,
                     port=const 0x0b,
                     ddr=const 0x0a,
                     pin=const 0x06, // should be the same for port, ddr and pmsk
@@ -111,7 +154,8 @@ mod atmega328p_read{
                     reg3=out(reg) reg3,
                 }
             }
-            Ok(N64ControllerState(1))
+            let state = u32::from_be_bytes([reg0,reg1,reg2,reg3]);
+            Ok(N64ControllerState(state))
         }
     }
 }
