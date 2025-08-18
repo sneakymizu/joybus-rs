@@ -35,8 +35,8 @@ mod atmega328p_read{
         unsafe{
             asm!{
                 //poll
-                "sbi {port}, {pin}", // PORTD Pin "6"
-                "sbi {ddr}, {pin}", // DDRD Pin "6"
+                "sbi {ddr}, {pin}", // DDRD Pin "PIN_NUMBER"
+                "sbi {port}, {pin}", // PORTD Pin "PIN_NUMBER"
                 "0:",
                     "cbi {port}, {pin}",
                     "ldi {inner_loop_counter}, 15",
@@ -69,10 +69,10 @@ mod atmega328p_read{
                     "nop",
                     "dec {ones}",
                     "brne 1b",
-                "nop", // 1
+                /*"nop", // 1
                 //switch to read
-                "sbi {port}, {pin}", // 1
                 "cbi {ddr}, {pin}", // 1
+                "sbi {port}, {pin}", // 1
                 "ldi {read_loop_counter}, 4", // 1
                 "0:",
                     // wait 1µs
@@ -135,21 +135,22 @@ mod atmega328p_read{
                     // sbrs takes 2 cycles so "high" starts with 1
                     "cpi {read_loop_counter}, 3", // 1
                     "0:",
-                        "add {reg3}, 1",
+                        "add {reg3}, 1",*/
                 zeros=in(reg) zeros,
                 ones=in(reg) ones,
                 inner_loop_counter=out(reg) _,
-                read_loop_counter=in(reg) read_loop_counter,
+                //read_loop_counter=in(reg) read_loop_counter,
                 port=const 0x0b,
                 ddr=const 0x0a,
                 pin=const PIN_NUMBER, // should be the same for port, ddr and pmsk
-                reg0=out(reg) reg0,
-                reg1=out(reg) reg1,
-                reg2=out(reg) reg2,
-                reg3=out(reg) reg3,
+                //reg0=out(reg) reg0,
+                //reg1=out(reg) reg1,
+                //reg2=out(reg) reg2,
+                //reg3=out(reg) reg3,
             }
         }
-        let state = u32::from_be_bytes([reg0,reg1,reg2,reg3]);
+        //let state = u32::from_be_bytes([reg0,reg1,reg2,reg3]);
+        let state = 1;
         Ok(N64ControllerState(state))
     }
 }
@@ -164,17 +165,19 @@ fn main() -> ! {
     let mut led_pin = pins.d13.into_output();
     led_pin.set_high();
 
-    let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
-    //let _reader_pin = pins.d6.into_output_high();
+    //let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
+    let mut _reader_pin = pins.d6.into_output_high();
+    _reader_pin.set_high();
 
     //uwriteln!(serial, "Lets go\r").unwrap();
     led_pin.set_low();
+    arduino_hal::delay_ms(5000);
     loop {
         let _ = poll_controller_state::<6>();
         /*let _write = match poll_controller_state::<6>() {
             Ok(num) => uwriteln!(serial, "Have read {}\r", num.0),
             Err(e) => uwriteln!(serial, "Error occured {}\r", e),
         };*/
-        arduino_hal::delay_ms(1000);
+        arduino_hal::delay_ms(100);
     }
 }
