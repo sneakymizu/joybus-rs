@@ -32,28 +32,31 @@ mod atmega328p_read{
         let reg3: u8;
         let zeros:u8 = 7;
         let ones:u8 = 2;
+        let input = 0b00000001;
         unsafe{
             asm!{
                 //poll
                 "sbi {ddr}, {pin}", // DDRD Pin "PIN_NUMBER"
                 "sbi {port}, {pin}", // PORTD Pin "PIN_NUMBER"
-                "0:",
+                "0:", // send logic zero here
+                    "lsr {input}", // 1c
+                    "breq 2f", // 1c for non branching (sending 1 or 0) # done writing
+                    "brcs 11f", // 1c for send 0, 2c for send 1
+                "10:",
                     "cbi {port}, {pin}",
                     "ldi {inner_loop_counter}, 15",
                     "1:",
                         "dec {inner_loop_counter}",
                         "brne 1b",
                     "nop",
-                    "sbi {port}, {pin}",
-                    "ldi {inner_loop_counter}, 3",
+                    "sbi {port}, {pin}", // 1c
+                    "ldi {inner_loop_counter}, 3", // 1c
                     "1:",
-                        "dec {inner_loop_counter}",
-                        "brne 1b",
-                    "nop",
-                    "nop",
-                    "dec {zeros}",
-                    "brne 0b",
-                "0:",
+                        "dec {inner_loop_counter}", // 1c
+                        "brne 1b", // 1c on exit 2c else
+                        "nop", // 1c
+                        "breq 0b", // 2c (otherwise brne would have hit), exit with 12 cycles high here
+                "11:",  // send logic one here
                     "cbi {port}, {pin}", // 2
                     "ldi {inner_loop_counter}, 4", // 1
                     "1:",
@@ -66,10 +69,11 @@ mod atmega328p_read{
                     "1:",
                         "dec {inner_loop_counter}",
                         "brne 1b",
-                    "nop",
-                    "dec {ones}",
-                    "brne 0b",
-                /*"nop", // 1
+                        "breq 0b",
+                "2:", // send stop bit
+                    "nop", // 1
+                // continue with reading here
+                /*
                 //switch to read
                 "cbi {ddr}, {pin}", // 1
                 "sbi {port}, {pin}", // 1
@@ -136,8 +140,7 @@ mod atmega328p_read{
                     "cpi {read_loop_counter}, 3", // 1
                     "0:",
                         "add {reg3}, 1",*/
-                zeros=in(reg) zeros,
-                ones=in(reg) ones,
+                input=in(reg) input,
                 inner_loop_counter=out(reg) _,
                 //read_loop_counter=in(reg) read_loop_counter,
                 port=const 0x0b,
