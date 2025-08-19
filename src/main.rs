@@ -40,35 +40,35 @@ mod atmega328p_read{
                 "0:",
                     "cbi {port}, {pin}",
                     "ldi {inner_loop_counter}, 15",
-                    "00:",
+                    "1:",
                         "dec {inner_loop_counter}",
-                        "brne 00b",
+                        "brne 1b",
                     "nop",
                     "sbi {port}, {pin}",
                     "ldi {inner_loop_counter}, 3",
-                    "01:",
+                    "1:",
                         "dec {inner_loop_counter}",
-                        "brne 01b",
+                        "brne 1b",
                     "nop",
                     "nop",
                     "dec {zeros}",
                     "brne 0b",
-                "1:",
+                "0:",
                     "cbi {port}, {pin}", // 2
                     "ldi {inner_loop_counter}, 4", // 1
-                    "10:",
+                    "1:",
                         "dec {inner_loop_counter}", // 1
-                        "brne 10b", // 1/2
+                        "brne 1b", // 1/2
                     "nop",
                     "nop",
                     "sbi {port}, {pin}",
                     "ldi {inner_loop_counter}, 14",
-                    "11:",
+                    "1:",
                         "dec {inner_loop_counter}",
-                        "brne 11b",
+                        "brne 1b",
                     "nop",
                     "dec {ones}",
-                    "brne 1b",
+                    "brne 0b",
                 /*"nop", // 1
                 //switch to read
                 "cbi {ddr}, {pin}", // 1
