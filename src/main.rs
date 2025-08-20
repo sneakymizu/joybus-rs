@@ -30,42 +30,48 @@ mod atmega328p_read{
         let reg1: u8;
         let reg2: u8;
         let reg3: u8;
-        let zeros:u8 = 7;
-        let ones:u8 = 2;
-        let input = 0b00000001;
+        let zeros = 7u8;
+        let ones  = 2u8;
+        let input = 0b10101010u8;
+        let bit_counter = 9u8; // 8 bits but we'll branch on zero, thus would skip the last bit.
         unsafe{
             asm!{
-                //poll
-                "sbi {ddr}, {pin}", // DDRD Pin "PIN_NUMBER"
-                "sbi {port}, {pin}", // PORTD Pin "PIN_NUMBER"
-                "0:", // send logic zero here
-                    "lsr {input}", // 1c
-                    "breq 2f", // 1c for non branching (sending 1 or 0) # done writing
+                // designed for atmega running with 16MHz clock
+                // 1µs is 16 clock cylces, 3µs is 48
+                // send byte
+                "sbi {ddr}, {pin}", // DDR Pin "PIN_NUMBER"
+                "sbi {port}, {pin}", // PORT Pin "PIN_NUMBER"
+                "0:",
+                    "dec {bit_counter}", // 1c
+                    "breq 2f", // 1c for non branching (sending 1 or 0) else done writing
+                    "lsl {input}", // 1c
                     "brcs 11f", // 1c for send 0, 2c for send 1
-                "10:",
-                    "cbi {port}, {pin}",
-                    "ldi {inner_loop_counter}, 15",
-                    "1:",
-                        "dec {inner_loop_counter}",
-                        "brne 1b",
-                    "nop",
-                    "sbi {port}, {pin}", // 1c
-                    "ldi {inner_loop_counter}, 3", // 1c
+                // start sending logic zero here (high for 4c)
+                    "cbi {port}, {pin}", // 2c
+                    "ldi {inner_loop_counter}, 15", // 1c
                     "1:",
                         "dec {inner_loop_counter}", // 1c
-                        "brne 1b", // 1c on exit 2c else
+                        "brne 1b",  // 2c on branch else 1c
+                        // exit with 45c low
+                    "nop", // 1c
+                    "sbi {port}, {pin}", // 2c # high on cycle 48
+                    "ldi {inner_loop_counter}, 2", // 1c
+                    "1:",
                         "nop", // 1c
-                        "breq 0b", // 2c (otherwise brne would have hit), exit with 12 cycles high here
-                "11:",  // send logic one here
+                        "dec {inner_loop_counter}", // 1c
+                        "brne 1b", // 2c on branch else 1c
+                        // exit with 8 cycles
+                        "breq 0b", // 2c (otherwise brne would have hit), exit with 10 cycles high here
+                "11:",  // start sending logic one here (high for 5c)
                     "cbi {port}, {pin}", // 2
-                    "ldi {inner_loop_counter}, 4", // 1
+                    "ldi {inner_loop_counter}, 3", // 1
                     "1:",
                         "dec {inner_loop_counter}", // 1
                         "brne 1b", // 1/2
                     "nop",
                     "nop",
                     "sbi {port}, {pin}",
-                    "ldi {inner_loop_counter}, 14",
+                    "ldi {inner_loop_counter}, 13",
                     "1:",
                         "dec {inner_loop_counter}",
                         "brne 1b",
@@ -140,6 +146,7 @@ mod atmega328p_read{
                     "cpi {read_loop_counter}, 3", // 1
                     "0:",
                         "add {reg3}, 1",*/
+                bit_counter=in(reg) bit_counter,
                 input=in(reg) input,
                 inner_loop_counter=out(reg) _,
                 //read_loop_counter=in(reg) read_loop_counter,
