@@ -47,7 +47,7 @@ mod atmega328p_read{
                     "lsl {input}", // 1c
                     "brcs 11f", // 1c for send 0, 2c for send 1
                     "nop", //1c add nop here so one and zero cycle cout are equivalent
-                // start sending logic zero here (already high for 7c)
+                // start sending logic zero here (already high for 5c)
                     "cbi {port}, {pin}", // 2c
                     "ldi {inner_loop_counter}, 15", // 1c
                     "1:",
@@ -63,7 +63,7 @@ mod atmega328p_read{
                         "nop", // 1c
                         // exit with 8 cycles
                         "breq 0b", // 2c (otherwise brne would have hit), exit with 9 cycles high here
-                "11:",  // start sending logic one here (already high for 7c)
+                "11:",  // start sending logic one here (already high for 5c)
                     "cbi {port}, {pin}", // 2c
                     "ldi {inner_loop_counter}, 4", // 1c
                     "1:",
@@ -77,8 +77,21 @@ mod atmega328p_read{
                         "dec {inner_loop_counter}", // 1c
                         "brne 1b", // 1c
                         "breq 0b", // 2c
-                "2:", // send stop bit
-                    "nop", // 1
+                "2:", // send stop bit (starts with 12c/44c high)
+                    "nop", // 1c
+                    "nop", // 1c
+                    "cbi {port}, {pin}", // 2c
+                    "ldi {inner_loop_counter}, 4", // 1c
+                    "1:",
+                        "dec {inner_loop_counter}", // 1c
+                        "brne 1b", // 1c/2c
+                    "nop", // 1c
+                    "nop", // 1c
+                    "sbi {port}, {pin}", // 2c - high on cycle 16
+                    "ldi {inner_loop_counter}, 13", // 1c
+                    "1:",
+                        "dec {inner_loop_counter}", // 1c
+                        "brne 1b", // 1c
                 // continue with reading here
                 /*
                 //switch to read
