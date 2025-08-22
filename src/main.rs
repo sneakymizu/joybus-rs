@@ -10,6 +10,24 @@ use crate::atmega328p::send_byte;
 mod atmega328p;
 mod n64;
 
+enum Either<L,R>{
+    Left(L),
+    Right(R)
+}
+impl<L,R> Either<L,R>{
+    fn left(self)->L{
+        match self{
+            Either::Left(l)=>l,
+            Either::Right(_r)=>panic!()
+        }
+    }
+    fn right(self)->R{
+        match self{
+            Either::Left(_l)=>panic!(),
+            Either::Right(r)=>r
+        }
+    }
+}
 #[arduino_hal::entry]
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
@@ -19,14 +37,17 @@ fn main() -> ! {
     led_pin.set_high();
 
     //let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
-    let mut _reader_pin = pins.d6.into_output_high();
+    let mut _reader_pin = Either::Left(pins.d6.into_output_high());
 
     //uwriteln!(serial, "Lets go\r").unwrap();
     led_pin.set_low();
     arduino_hal::delay_ms(3000);
     send_byte::<0x0b, 0x06>(n64::commands::POLL_SIGNAL);
-    _reader_pin.into_pull_up_input();
+    _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
     loop {
+        _reader_pin = Either::Left(_reader_pin.right().into_output_high());
+        send_byte::<0x0b, 0x06>(n64::commands::POLL_SIGNAL);
+        _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
         arduino_hal::delay_ms(100);
     }
 }
