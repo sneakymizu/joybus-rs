@@ -2,14 +2,13 @@
 
 use core::arch::asm;
 
-pub fn send_byte<const DDR:u8, const PORT:u8 ,const PIN_NUMBER:u8>(byte: u8) {
+// assumes the given port is configured as output
+// designed for atmega running with 16MHz clock
+// 1µs is 16 clock cylces, 3µs is 48
+pub fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8>(byte: u8) {
     let bit_counter = 9u8; // 8 bits but we'll branch on zero, thus would skip the last bit.
     unsafe{
         asm!{
-            // designed for atmega running with 16MHz clock
-            // 1µs is 16 clock cylces, 3µs is 48
-            // send byte
-            "sbi {ddr}, {pin}", // DDR Pin "PIN_NUMBER"
             "sbi {port}, {pin}", // PORT Pin "PIN_NUMBER"
             "0:",
                 "dec {bit_counter}", // 1c
@@ -63,7 +62,6 @@ pub fn send_byte<const DDR:u8, const PORT:u8 ,const PIN_NUMBER:u8>(byte: u8) {
             input=in(reg) byte,
             inner_loop_counter=out(reg) _,
             port=const PORT,
-            ddr=const DDR,
             pin=const PIN_NUMBER, // should be the same for port, ddr and pmsk
         }
     }

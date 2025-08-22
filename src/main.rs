@@ -20,13 +20,13 @@ fn main() -> ! {
 
     //let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut _reader_pin = pins.d6.into_output_high();
-    _reader_pin.set_high();
 
     //uwriteln!(serial, "Lets go\r").unwrap();
     led_pin.set_low();
     arduino_hal::delay_ms(3000);
+    send_byte::<0x0b, 0x06>(n64::commands::POLL_SIGNAL);
+    _reader_pin.into_pull_up_input();
     loop {
-        send_byte::<0x0a, 0x0b, 0x06>(n64::commands::POLL_SIGNAL);
         arduino_hal::delay_ms(100);
     }
 }
