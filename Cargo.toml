@@ -20,11 +20,11 @@ avr-device = "0.5"
 panic = "abort"
 codegen-units = 1
 debug = true
-lto = true
+lto = false  # setting this to anything higher screws up signal logic
 opt-level = "s"
 
 [profile.release]
 panic = "abort"
 codegen-units = 1
-lto = true
+lto = false  # setting this to anything higher screws up signal logic
 opt-level = "s"
