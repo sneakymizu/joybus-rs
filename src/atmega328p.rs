@@ -1,10 +1,12 @@
 #[cfg(atmega328p)]
 
 use core::arch::asm;
+use ufmt::derive::uDebug;
 
 // assumes the given port is configured as output
 // designed for atmega running with 16MHz clock
 // 1µs is 16 clock cylces, 3µs is 48
+#[inline]
 pub fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8>(byte: u8) {
     let bit_counter = 9u8; // 8 bits but we'll branch on zero, thus would skip the last bit.
     unsafe{
@@ -66,14 +68,30 @@ pub fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8>(byte: u8) {
         }
     }
 }
+#[derive(uDebug)]
 pub enum ReadError{ // prolly yagni
     WeWentTooFar,
-    Timeout,
+    WaitForHighTimeout,
+    WaitForLowTimeout,
+    UnknownError
 }
-const UNEXPECTED_CARRY: u8=0b1;
-const READ_TIMEOUT_ERR: u8=0b10;
+impl From<u8> for ReadError{
+
+    fn from(value: u8) -> Self {
+        match value{
+            UNEXPECTED_CARRY_BIT=>ReadError::WeWentTooFar,
+            WAIT_FOR_HIGH_TIMEOUT_ERR=>ReadError::WaitForHighTimeout,
+            WAIT_FOR_LOW_TIMEOUT_ERR=>ReadError::WaitForLowTimeout,
+            _=>ReadError::UnknownError
+        }
+    }
+}
+const UNEXPECTED_CARRY_BIT: u8=0;
+const WAIT_FOR_HIGH_TIMEOUT_ERR: u8=1;
+const WAIT_FOR_LOW_TIMEOUT_ERR: u8=2;
 const SIGNAL_TIMEOUT_IN_CYCLES: u8=8;
 
+#[inline]
 pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>()->Result<[u8;4], ReadError>{
     let mut reg0:u8;
     let mut reg1:u8;
@@ -92,11 +110,11 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>()->Result<[u8;4], ReadErro
                     // expect falling edge/zero signal
                     "sbic {pin} {pin_number}", // 1c/2c/3c
                     "jmp 0b", // 3c -> 7c
-                "ldi {read_bit} 6", // 1c
+                "ldi {read_bit} 0", // 1c
                 "0:",
                     "inc {read_bit}", // 1c
                     "cpi {read_bit} {timeout_val}", // 1c
-                    "breq 98f", // 1c/2c
+                    "breq 97f", // 1c/2c
                     "sbis {pin} {pin_number}", // 1c/2c/3c
                     "jmp 0b", // 3c -> 7c
                     "cpi {read_bit} 4", // 1c
@@ -119,11 +137,15 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>()->Result<[u8;4], ReadErro
                 "lsl {reg3}", // 1c
                 "or {reg3} {read_bit}", // 1c
                 "brcc 2b", // 1c/2c on branch
+                "jmp 99f",
+            "97:",
+                "ldi {erreg} {high_timeout_err}",
                 "jmp 100f",
             "98:",
-                "ori {erreg} {timeout_err_bit}", // exit with timeout
+                "ldi {erreg} {low_timeout_err}", // exit with timeout
+                "jmp 100f",
             "99:",
-                "ori {erreg} {unexpected_carry}", // exit with unexpected carry
+                "ldi {erreg} {unexpected_carry}", // exit with unexpected carry
             "100:",
             pin=const PIN,
             pin_number=const PIN_NUMBER,
@@ -133,13 +155,14 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>()->Result<[u8;4], ReadErro
             reg2=out(reg) reg2,
             reg3=out(reg) reg3,
             timeout_val=const SIGNAL_TIMEOUT_IN_CYCLES,
-            timeout_err_bit=const READ_TIMEOUT_ERR,
-            unexpected_carry= const UNEXPECTED_CARRY,
+            high_timeout_err=const WAIT_FOR_HIGH_TIMEOUT_ERR,
+            low_timeout_err=const WAIT_FOR_LOW_TIMEOUT_ERR,
+            unexpected_carry= const UNEXPECTED_CARRY_BIT,
             erreg=inout(reg) errors,
         }
     }
-    if errors&1>0{
-        Err(ReadError::WeWentTooFar)
+    if errors>0{
+        Err(errors.into())
     }else{
         Ok([reg0, reg1, reg2, reg3])
     }
