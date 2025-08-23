@@ -67,20 +67,46 @@ pub fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8>(byte: u8) {
     }
 }
 pub enum ReadError{ // prolly yagni
-    WeWentTooFar
+    WeWentTooFar,
+    Timeout,
 }
+const UNEXPECTED_CARRY: u8=0b1;
+const READ_TIMEOUT_ERR: u8=0b10;
+const SIGNAL_TIMEOUT_IN_CYCLES: u8=8;
 
-pub fn read_bytes<const PORT:u8, const PIN: u8>()->Result<[u8;4], ReadError>{
+pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>()->Result<[u8;4], ReadError>{
     let mut reg0:u8;
     let mut reg1:u8;
     let mut reg2:u8;
     let mut reg3:u8;
-    let mut sreg:u8;
+    let mut errors:u8=0;
     unsafe {
         asm!{
             "2:", // start read
-
-            "1:", // add bit (12c worst case)
+                // wait 4µs to detect a signal (64 cycles)
+                "ldi {read_bit} 0", // 1c
+                "0:",
+                    "inc {read_bit}", // 1c
+                    "cpi {read_bit} {timeout_val}", // 1c
+                    "breq 98f", // 1c/2c
+                    // expect falling edge/zero signal
+                    "sbic {pin} {pin_number}", // 1c/2c/3c
+                    "jmp 0b", // 3c -> 7c
+                "ldi {read_bit} 6", // 1c
+                "0:",
+                    "inc {read_bit}", // 1c
+                    "cpi {read_bit} {timeout_val}", // 1c
+                    "breq 98f", // 1c/2c
+                    "sbis {pin} {pin_number}", // 1c/2c/3c
+                    "jmp 0b", // 3c -> 7c
+                    "cpi {read_bit} 4", // 1c
+                    "brlo 1f", // 1c/2c
+                    "ldi {read_bit} 0", // 1c
+                    "jmp 3f", // 3c
+                "1:",
+                    "nop",
+                    "ldi {read_bit} 1",
+            "3:", // add bit (12c worst case)
                 "lsl {reg0}", // 1c
                 "or {reg0} {read_bit}", // 1c
                 "brcc 2b", // 1c/2c on branch
@@ -93,16 +119,26 @@ pub fn read_bytes<const PORT:u8, const PIN: u8>()->Result<[u8;4], ReadError>{
                 "lsl {reg3}", // 1c
                 "or {reg3} {read_bit}", // 1c
                 "brcc 2b", // 1c/2c on branch
-                "mov {sreg} 0x3f", // exit with sreg on error
+                "jmp 100f",
+            "98:",
+                "ori {erreg} {timeout_err_bit}", // exit with timeout
+            "99:",
+                "ori {erreg} {unexpected_carry}", // exit with unexpected carry
+            "100:",
+            pin=const PIN,
+            pin_number=const PIN_NUMBER,
             read_bit=out(reg) _,
             reg0=out(reg) reg0,
             reg1=out(reg) reg1,
             reg2=out(reg) reg2,
             reg3=out(reg) reg3,
-            sreg=out(reg) sreg,
+            timeout_val=const SIGNAL_TIMEOUT_IN_CYCLES,
+            timeout_err_bit=const READ_TIMEOUT_ERR,
+            unexpected_carry= const UNEXPECTED_CARRY,
+            erreg=inout(reg) errors,
         }
     }
-    if sreg&1>0{
+    if errors&1>0{
         Err(ReadError::WeWentTooFar)
     }else{
         Ok([reg0, reg1, reg2, reg3])
