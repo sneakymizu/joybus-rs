@@ -66,4 +66,45 @@ pub fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8>(byte: u8) {
         }
     }
 }
+pub enum ReadError{ // prolly yagni
+    WeWentTooFar
+}
 
+pub fn read_bytes<const PORT:u8, const PIN: u8>()->Result<[u8;4], ReadError>{
+    let mut reg0:u8;
+    let mut reg1:u8;
+    let mut reg2:u8;
+    let mut reg3:u8;
+    let mut sreg:u8;
+    unsafe {
+        asm!{
+            "2:", // start read
+
+            "1:", // add bit (12c worst case)
+                "lsl {reg0}", // 1c
+                "or {reg0} {read_bit}", // 1c
+                "brcc 2b", // 1c/2c on branch
+                "lsl {reg1}", // 1c
+                "or {reg1} {read_bit}", // 1c
+                "brcc 2b", // 1c/2c on branch
+                "lsl {reg2}", // 1c
+                "or {reg2} {read_bit}", // 1c
+                "brcc 2b", // 1c/2c on branch
+                "lsl {reg3}", // 1c
+                "or {reg3} {read_bit}", // 1c
+                "brcc 2b", // 1c/2c on branch
+                "mov {sreg} 0x3f", // exit with sreg on error
+            read_bit=out(reg) _,
+            reg0=out(reg) reg0,
+            reg1=out(reg) reg1,
+            reg2=out(reg) reg2,
+            reg3=out(reg) reg3,
+            sreg=out(reg) sreg,
+        }
+    }
+    if sreg&1>0{
+        Err(ReadError::WeWentTooFar)
+    }else{
+        Ok([reg0, reg1, reg2, reg3])
+    }
+}
