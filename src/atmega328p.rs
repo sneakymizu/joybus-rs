@@ -98,9 +98,13 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>()->Result<[u8;4], ReadErro
     let mut reg2:u8;
     let mut reg3:u8;
     let mut errors:u8=0;
+    let mut bit_count:u8=0;
     unsafe {
         asm!{
             "2:", // start read
+                "inc {bit_count}",
+                "cpi {bit_count} 32",
+                "breq 100f",
                 // wait 4µs to detect a signal (64 cycles)
                 "ldi {read_bit} 0", // 1c
                 "0:",
@@ -154,6 +158,7 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>()->Result<[u8;4], ReadErro
             reg1=out(reg) reg1,
             reg2=out(reg) reg2,
             reg3=out(reg) reg3,
+            bit_count=inout(reg) bit_count,
             timeout_val=const SIGNAL_TIMEOUT_IN_CYCLES,
             high_timeout_err=const WAIT_FOR_HIGH_TIMEOUT_ERR,
             low_timeout_err=const WAIT_FOR_LOW_TIMEOUT_ERR,
@@ -164,6 +169,6 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>()->Result<[u8;4], ReadErro
     if errors>0{
         Err(errors.into())
     }else{
-        Ok([reg0, reg1, reg2, reg3])
+        Ok([reg3, reg2, reg1, reg0])
     }
 }
