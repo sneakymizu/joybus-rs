@@ -93,77 +93,67 @@ const SIGNAL_TIMEOUT_IN_CYCLES: u8=8;
 
 #[inline]
 pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>()->Result<[u8;4], ReadError>{
-    let mut reg0:u8;
-    let mut reg1:u8;
-    let mut reg2:u8;
-    let mut reg3:u8;
+    let mut reg0:u8 = 0;
+    let mut reg1:u8 = 0;
+    let mut reg2:u8 = 0;
+    let mut reg3:u8 = 0;
     let mut errors:u8=0;
     let mut bit_count:u8=0;
     unsafe {
         asm!{
-            "2:", // start read
-                "inc {bit_count}",
-                "cpi {bit_count} 32",
-                "breq 100f",
-                // wait 4µs to detect a signal (64 cycles)
-                "ldi {read_bit} 0", // 1c
-                "0:",
-                    "inc {read_bit}", // 1c
-                    "cpi {read_bit} {timeout_val}", // 1c
-                    "breq 98f", // 1c/2c
-                    // expect falling edge/zero signal
-                    "sbic {pin} {pin_number}", // 1c/2c/3c
-                    "jmp 0b", // 3c -> 7c
-                "ldi {read_bit} 0", // 1c
-                "0:",
-                    "inc {read_bit}", // 1c
-                    "cpi {read_bit} {timeout_val}", // 1c
-                    "breq 97f", // 1c/2c
-                    "sbis {pin} {pin_number}", // 1c/2c/3c
-                    "jmp 0b", // 3c -> 7c
-                    "cpi {read_bit} 4", // 1c
-                    "brlo 1f", // 1c/2c
-                    "ldi {read_bit} 0", // 1c
-                    "jmp 3f", // 3c
-                "1:",
-                    "nop",
-                    "ldi {read_bit} 1",
-            "3:", // add bit (12c worst case)
-                "lsl {reg0}", // 1c
-                "or {reg0} {read_bit}", // 1c
-                "brcc 2b", // 1c/2c on branch
-                "lsl {reg1}", // 1c
-                "or {reg1} {read_bit}", // 1c
-                "brcc 2b", // 1c/2c on branch
-                "lsl {reg2}", // 1c
-                "or {reg2} {read_bit}", // 1c
-                "brcc 2b", // 1c/2c on branch
-                "lsl {reg3}", // 1c
-                "or {reg3} {read_bit}", // 1c
-                "brcc 2b", // 1c/2c on branch
-                "jmp 99f",
-            "97:",
-                "ldi {erreg} {high_timeout_err}",
-                "jmp 100f",
-            "98:",
-                "ldi {erreg} {low_timeout_err}", // exit with timeout
-                "jmp 100f",
-            "99:",
-                "ldi {erreg} {unexpected_carry}", // exit with unexpected carry
+            // alignment???
+            // read bits
+            "ldi {read_byte} 0",
+            "ldi {tmp} 4",
+            "0:",
+                "dec {tmp}",
+                "brne 0b",
+            "nop",
+            "nop", // 14c (first read)
+            "2:",
+            "bst {pin} {pin_number}",
+            "lsl {read_byte}",
+            "bld {read_byte} 0",
+            "ldi {tmp} 4",
+            "0:",
+                "dec {tmp}",
+                "brne 0b",
+            "nop", // 13c
+            "bst {pin} {pin_number}",
+            "lsl {read_byte}",
+            "bld {read_byte} 0",
+            "ldi {tmp} 4",
+            "0:",
+                "dec {tmp}",
+                "brne 0b",
+            "nop", // 13c
+            "bst {pin} {pin_number}",
+            "lsl {read_byte}",
+            "bld {read_byte} 0",
+            "nop",
+            "nop",
+            "nop", // 6c into bit
+            "cpi {read_byte} 3",
+            "breq 1f",
+            "cpi {read_byte} 1",
+            "breq 0f",
+            "cpi {read_byte} 2",
+            "breq 100f",
+            "1:",
+                "lsl {reg0}",
+                "nop",
+                "ori {reg0} 1",
+                "jmp 2b",
+            "0:",
+                "lsl {reg0}",
+                "nop",
+                "jmp 2b",
             "100:",
             pin=const PIN,
             pin_number=const PIN_NUMBER,
-            read_bit=out(reg) _,
+            read_byte=out(reg) _,
             reg0=out(reg) reg0,
-            reg1=out(reg) reg1,
-            reg2=out(reg) reg2,
-            reg3=out(reg) reg3,
-            bit_count=inout(reg) bit_count,
-            timeout_val=const SIGNAL_TIMEOUT_IN_CYCLES,
-            high_timeout_err=const WAIT_FOR_HIGH_TIMEOUT_ERR,
-            low_timeout_err=const WAIT_FOR_LOW_TIMEOUT_ERR,
-            unexpected_carry= const UNEXPECTED_CARRY_BIT,
-            erreg=inout(reg) errors,
+            tmp=out(reg) _,
         }
     }
     if errors>0{
