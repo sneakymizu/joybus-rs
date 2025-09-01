@@ -46,10 +46,11 @@ fn main() -> ! {
     send_byte::<0x0b, 0x06>(n64::commands::POLL_SIGNAL);
     _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
     loop {
+        let mut data = [1u8;4];
         _reader_pin = Either::Left(_reader_pin.right().into_output_high());
         send_byte::<0x0b, 0x06>(n64::commands::POLL_SIGNAL);
         _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
-        let _ = match read_bytes::<0x09, 0x06>(){
+        let _ = match read_bytes::<0x09, 0x06>(&mut data){
             Ok(b) => uwriteln!(serial, "Bytes are {:?}\r", b),
             Err(e) => uwriteln!(serial, "Got error {:?}\r", e),
         };

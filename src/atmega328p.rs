@@ -91,9 +91,8 @@ const WAIT_FOR_HIGH_TIMEOUT_ERR: u8=1;
 const WAIT_FOR_LOW_TIMEOUT_ERR: u8=2;
 
 #[inline]
-pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>()->Result<[u8;4], ReadError>{
-    let output = [1u8;4];
-    let [high_addr, low_addr] = (output.as_ptr() as u16).to_le_bytes();
+pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<usize, ReadError>{
+    let [high_addr, low_addr] = (data.as_ptr() as u16).to_le_bytes();
     let mut errors:u8;
     unsafe {
         asm!{
@@ -104,12 +103,12 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>()->Result<[u8;4], ReadErro
                 "dec {tmp}", // 1c
                 "sbic {pin} {pin_number}", // 1c/2c
                 "brne 0b", // 2c/1c
-                "breq 100f", // 1c
+                "breq 98f", // 1c
             // 2c to 6c off down signal | exits after 5c, 9c, 13c, 17c
-            "ldi {tmp} 5",
+            /*"ldi {tmp} 5",
             "0:", // run to next sampling window
                 "dec {tmp}",
-                "brne 0b",
+                "brne 0b",*/
             // read bits
             "2:",
                 "bst {pin} {pin_number}", // 1c
@@ -168,6 +167,6 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>()->Result<[u8;4], ReadErro
     if errors>0{
         Err(errors.into())
     }else{
-        Ok(output)
+        Ok(4)
     }
 }
