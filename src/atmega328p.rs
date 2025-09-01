@@ -101,59 +101,67 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>()->Result<[u8;4], ReadErro
     let mut bit_count:u8=0;
     unsafe {
         asm!{
-            // alignment???
+            // sync with signal
+            "ldi {read_byte} 0", // 1c
+            "ldi {tmp} 4", // 1c
+            "0:", // 1 loop -> 4c
+                "dec {tmp}", // 1c
+                "sbic {pin} {pin_number}", // 1c/2c
+                "brne 0b", // 2c/1c
+                "breq 100f", // 1c
+            // 2c to 6c off down signal | exits after 5c, 9c, 13c, 17c
+            "ldi {tmp} 5",
+            "0:", // run to next sampling window
+                "dec {tmp}",
+                "brne 0b",
             // read bits
-            "ldi {read_byte} 0",
-            "ldi {tmp} 4",
-            "0:",
-                "dec {tmp}",
-                "brne 0b",
-            "nop",
-            "nop", // 14c (first read)
             "2:",
-            "bst {pin} {pin_number}",
-            "lsl {read_byte}",
-            "bld {read_byte} 0",
-            "ldi {tmp} 4",
-            "0:",
-                "dec {tmp}",
-                "brne 0b",
-            "nop", // 13c
-            "bst {pin} {pin_number}",
-            "lsl {read_byte}",
-            "bld {read_byte} 0",
-            "ldi {tmp} 4",
-            "0:",
-                "dec {tmp}",
-                "brne 0b",
-            "nop", // 13c
-            "bst {pin} {pin_number}",
-            "lsl {read_byte}",
-            "bld {read_byte} 0",
-            "nop",
-            "nop",
-            "nop", // 6c into bit
-            "cpi {read_byte} 3",
-            "breq 1f",
-            "cpi {read_byte} 1",
-            "breq 0f",
-            "cpi {read_byte} 2",
-            "breq 100f",
-            "1:",
-                "lsl {reg0}",
+                "bst {pin} {pin_number}",
+                "lsl {read_byte}",
+                "bld {read_byte} 0",
+                "ldi {tmp} 4",
+                "0:",
+                    "dec {tmp}",
+                    "brne 0b",
+                "nop", // 13c
+                "bst {pin} {pin_number}",
+                "lsl {read_byte}",
+                "bld {read_byte} 0",
+                "ldi {tmp} 4",
+                "0:",
+                    "dec {tmp}",
+                    "brne 0b",
+                "nop", // 13c
+                "bst {pin} {pin_number}",
+                "lsl {read_byte}",
+                "bld {read_byte} 0",
                 "nop",
-                "ori {reg0} 1",
-                "jmp 2b",
-            "0:",
-                "lsl {reg0}",
                 "nop",
-                "jmp 2b",
+                "nop", // 6c into bit
+                "cpi {read_byte} 3",
+                "breq 1f",
+                "cpi {read_byte} 1",
+                "breq 0f",
+                "cpi {read_byte} 2",
+                "breq 100f",
+                "1:",
+                    "lsl {reg0}",
+                    "nop",
+                    "ori {reg0} 1",
+                    "jmp 2b",
+                "0:",
+                    "lsl {reg0}",
+                    "nop",
+                    "jmp 2b",
+            "98:",
+                "ldi {errors} 1",
             "100:",
             pin=const PIN,
             pin_number=const PIN_NUMBER,
             read_byte=out(reg) _,
             reg0=out(reg) reg0,
             tmp=out(reg) _,
+            errors=out(reg) errors,
         }
     }
     if errors>0{
