@@ -89,16 +89,12 @@ impl From<u8> for ReadError{
 const UNEXPECTED_CARRY_BIT: u8=0;
 const WAIT_FOR_HIGH_TIMEOUT_ERR: u8=1;
 const WAIT_FOR_LOW_TIMEOUT_ERR: u8=2;
-const SIGNAL_TIMEOUT_IN_CYCLES: u8=8;
 
 #[inline]
 pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>()->Result<[u8;4], ReadError>{
-    let mut reg0:u8 = 0;
-    let mut reg1:u8 = 0;
-    let mut reg2:u8 = 0;
-    let mut reg3:u8 = 0;
-    let mut errors:u8=0;
-    let mut bit_count:u8=0;
+    let output = [1u8;4];
+    let [high_addr, low_addr] = (output.as_ptr() as u16).to_le_bytes();
+    let mut errors:u8;
     unsafe {
         asm!{
             // sync with signal
@@ -116,50 +112,55 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>()->Result<[u8;4], ReadErro
                 "brne 0b",
             // read bits
             "2:",
-                "bst {pin} {pin_number}",
-                "lsl {read_byte}",
-                "bld {read_byte} 0",
-                "ldi {tmp} 4",
+                "bst {pin} {pin_number}", // 1c
+                "ldi {read_byte} 0", // 1c
+                "bld {read_byte} 7", // 1c
+                "ldi {tmp} 4", // 1c
                 "0:",
                     "dec {tmp}",
                     "brne 0b",
-                "nop", // 13c
+                "nop", // 15c
                 "bst {pin} {pin_number}",
-                "lsl {read_byte}",
-                "bld {read_byte} 0",
-                "ldi {tmp} 4",
+                "nop", // 1c
+                "bld {read_byte} 3", // 1c
+                "ldi {tmp} 4", // 1c
                 "0:",
                     "dec {tmp}",
                     "brne 0b",
-                "nop", // 13c
-                "bst {pin} {pin_number}",
-                "lsl {read_byte}",
-                "bld {read_byte} 0",
-                "nop",
-                "nop",
-                "nop", // 6c into bit
-                "cpi {read_byte} 3",
-                "breq 1f",
-                "cpi {read_byte} 1",
-                "breq 0f",
-                "cpi {read_byte} 2",
-                "breq 100f",
+                "nop", // 15c
+                "bst {pin} {pin_number}", // 1c
+                "bld {read_byte} 0", // 1c
+                "ld {tmp} z", // 2c
+
+                "lsl {read_byte}", // 1c
+                "brcs 1f", // 1c/2c  (7)
+                "brhc 0f", // 1c/2c  (1)
+                "jmp 100f", // 2c   (3)
                 "1:",
-                    "lsl {reg0}",
-                    "nop",
-                    "ori {reg0} 1",
-                    "jmp 2b",
+                    "lsl {tmp}", // 1c
+                    "ori {tmp} 1", // 1c
+                    "st z {tmp}", // 2c
+                    "brcc 1f", //1c/2c
+                    "adiw ZH:ZL 1", // 2c
+                    "brne 2b", // 2c
+                    "1:",
+                    "jmp 2b", // 3c (9c on exit)
                 "0:",
-                    "lsl {reg0}",
-                    "nop",
-                    "jmp 2b",
+                    "lsl {tmp}", // 1c
+                    "st z {tmp}", // 2c
+                    "brcc 1f", //1c/2c
+                    "adiw ZH:ZL 1", // 2c
+                    "brne 2b", // 2c
+                    "1:",
+                    "jmp 2b", // 3c (8c on exit)
             "98:",
                 "ldi {errors} 1",
             "100:",
             pin=const PIN,
             pin_number=const PIN_NUMBER,
             read_byte=out(reg) _,
-            reg0=out(reg) reg0,
+            in("ZL") low_addr,
+            in("ZH") high_addr,
             tmp=out(reg) _,
             errors=out(reg) errors,
         }
@@ -167,6 +168,6 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>()->Result<[u8;4], ReadErro
     if errors>0{
         Err(errors.into())
     }else{
-        Ok([reg3, reg2, reg1, reg0])
+        Ok(output)
     }
 }
