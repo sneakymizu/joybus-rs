@@ -70,71 +70,67 @@ pub fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8>(byte: u8) {
 }
 #[derive(uDebug)]
 pub enum ReadError{ // prolly yagni
-    WeWentTooFar,
-    WaitForHighTimeout,
-    WaitForLowTimeout,
-    UnknownError
+    Timeout,
+    StopConditionMissmatch(u8),
+    UnknownError(u8),
 }
 impl From<u8> for ReadError{
 
     fn from(value: u8) -> Self {
         match value{
-            UNEXPECTED_CARRY_BIT=>ReadError::WeWentTooFar,
-            WAIT_FOR_HIGH_TIMEOUT_ERR=>ReadError::WaitForHighTimeout,
-            WAIT_FOR_LOW_TIMEOUT_ERR=>ReadError::WaitForLowTimeout,
-            _=>ReadError::UnknownError
+            TIMEOUT_ERROR=>ReadError::Timeout,
+            _=>ReadError::UnknownError(value)
         }
     }
 }
-const UNEXPECTED_CARRY_BIT: u8=0;
-const WAIT_FOR_HIGH_TIMEOUT_ERR: u8=1;
-const WAIT_FOR_LOW_TIMEOUT_ERR: u8=2;
+const TIMEOUT_ERROR: u8=1;
 
 #[inline]
-pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<usize, ReadError>{
+pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<u8, ReadError>{
     let [high_addr, low_addr] = (data.as_ptr() as u16).to_le_bytes();
     let mut errors:u8;
+    let mut byte_sampling:u8;
+    let mut bytes_read:u8;
     unsafe {
         asm!{
             // sync with signal
-            "ldi {read_byte} 0", // 1c
-            "ldi {tmp} 4", // 1c
+            "ldi {bytes_read} 0",
+            "ldi {tmp} 12",
             "0:", // 1 loop -> 4c
                 "dec {tmp}", // 1c
                 "sbic {pin} {pin_number}", // 1c/2c
                 "brne 0b", // 2c/1c
                 "breq 98f", // 1c
-            // 2c to 6c off down signal | exits after 5c, 9c, 13c, 17c
-            /*"ldi {tmp} 5",
-            "0:", // run to next sampling window
-                "dec {tmp}",
-                "brne 0b",*/
-            // read bits
             "2:",
                 "bst {pin} {pin_number}", // 1c
-                "ldi {read_byte} 0", // 1c
-                "bld {read_byte} 7", // 1c
+                "ldi {byte_sampling} 0", // 1c
+                "bld {byte_sampling} 7", // 1c
                 "ldi {tmp} 4", // 1c
                 "0:",
-                    "dec {tmp}",
-                    "brne 0b",
-                "nop", // 15c
-                "bst {pin} {pin_number}",
-                "nop", // 1c
-                "bld {read_byte} 3", // 1c
-                "ldi {tmp} 4", // 1c
-                "0:",
-                    "dec {tmp}",
-                    "brne 0b",
-                "nop", // 15c
-                "bst {pin} {pin_number}", // 1c
-                "bld {read_byte} 0", // 1c
-                "ld {tmp} z", // 2c
+                    "dec {tmp}", // 1c
+                    "brne 0b", // 1c/2c
+                "inc {bytes_read}", // 1c -> end of block with 15c
 
-                "lsl {read_byte}", // 1c
-                "brcs 1f", // 1c/2c  (7)
-                "brhc 0f", // 1c/2c  (1)
-                "jmp 100f", // 2c   (3)
+                "bst {pin} {pin_number}", // 1c
+                "bld {byte_sampling} 0", // 1c
+                "ldi {tmp} 4", // 1c
+                "0:",
+                    "dec {tmp}", // 1c
+                    "brne 0b", // 1c/2c
+                "mov {current_sample_value} {byte_sampling}", // 1c
+                "nop", // 1c -> end of block with 15c
+
+                "bst {pin} {pin_number}", // 1c
+                "bld {byte_sampling} 3", // 1c
+                "ld {tmp} z", // 2c
+                "lsl {byte_sampling}", // 1c
+                "brcs 1f", // 1c/2c  (7th bit set -> 1)
+                "brhs 0f", // 1c/2c  (3rd bit set -> 0)
+
+                // stop bit or error (0 bit set or no bits -> stop/error)
+                "andi {byte_sampling} 1",
+                "breq 99f",  // and 1 is 0 -> stop bit was not set
+                "jmp 100f", // 2c
                 "1:",
                     "lsl {tmp}", // 1c
                     "ori {tmp} 1", // 1c
@@ -143,7 +139,7 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                     "adiw ZH:ZL 1", // 2c
                     "brne 2b", // 2c
                     "1:",
-                    "jmp 2b", // 3c (9c on exit)
+                    "jmp 2b", // 3c (9c on exit 15c since reading bit)
                 "0:",
                     "lsl {tmp}", // 1c
                     "st z {tmp}", // 2c
@@ -151,22 +147,31 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                     "adiw ZH:ZL 1", // 2c
                     "brne 2b", // 2c
                     "1:",
-                    "jmp 2b", // 3c (8c on exit)
+                    "jmp 2b", // 3c (8c on exit 15c since reading bit)
             "98:",
-                "ldi {errors} 1",
+                "ldi {errors} 2",
+                "jmp 101f",
+            "99:",
+                "mov {errors} 1",
+                "jmp 101f",
             "100:",
+                "ldi {errors} 0",
+            "101:",
             pin=const PIN,
             pin_number=const PIN_NUMBER,
-            read_byte=out(reg) _,
+            byte_sampling=out(reg) _,
+            current_sample_value=out(reg) byte_sampling,
+            bytes_read=out(reg) bytes_read,
             in("ZL") low_addr,
             in("ZH") high_addr,
             tmp=out(reg) _,
             errors=out(reg) errors,
         }
     }
-    if errors>0{
-        Err(errors.into())
-    }else{
-        Ok(4)
+    match errors{
+        0=>Ok(bytes_read),
+        1=>Err(ReadError::StopConditionMissmatch(byte_sampling)),
+        2=>Err(ReadError::Timeout),
+        _=>Err(ReadError::UnknownError(errors)),
     }
 }
