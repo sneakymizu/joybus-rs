@@ -3,6 +3,8 @@
 #![feature(asm_experimental_arch)]
 #![feature(asm_const)]
 
+use core::arch::asm;
+
 use panic_halt as _;
 use ufmt::uwriteln;
 
@@ -39,6 +41,7 @@ fn main() -> ! {
 
     let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut _reader_pin = Either::Left(pins.d6.into_output_high());
+    let mut mirror_pin = pins.d7.into_output();
 
     //uwriteln!(serial, "Lets go\r").unwrap();
     led_pin.set_low();

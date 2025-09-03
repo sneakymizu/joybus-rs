@@ -102,17 +102,25 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                 "brne 0b", // 2c/1c
                 "breq 98f", // 1c
             "2:",
-                "bst {pin} {pin_number}", // 1c
-                "ldi {byte_sampling} 0", // 1c
-                "bld {byte_sampling} 7", // 1c
-                "ldi {tmp} 4", // 1c
+                "sbis {pin} {pin_number}", // 1c/2c/3c
+                "rjmp 0f", // 2c
+                "rjmp 1f", // 2c
                 "0:",
-                    "dec {tmp}", // 1c
-                    "brne 0b", // 1c/2c
+                    "nop",
+                    "ldi {byte_sampling} 0", // 1c
+                    "jmp 3f", // 3c
+                "1:",
+                    "ldi {byte_sampling} 0b10000000", // 1c
+                    "jmp 3f", // 3c
+                "3:", // incomming jumps with 8c
+                    "ldi {tmp} 2",
+                    "0:",
+                        "dec {tmp}",
+                        "brne 0b",
                 "inc {bytes_read}", // 1c -> end of block with 15c
 
-                "bst {pin} {pin_number}", // 1c
-                "bld {byte_sampling} 0", // 1c
+                "sbic {pin} {pin_number}", // 1c
+                "ori {byte_sampling} 0b00000001", // 1c
                 "ldi {tmp} 4", // 1c
                 "0:",
                     "dec {tmp}", // 1c
@@ -120,15 +128,15 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                 "mov {current_sample_value} {byte_sampling}", // 1c
                 "nop", // 1c -> end of block with 15c
 
-                "bst {pin} {pin_number}", // 1c
-                "bld {byte_sampling} 3", // 1c
+                "sbic {pin} {pin_number}", // 1c
+                "ori {byte_sampling} 0b00001000", // 1c
                 "ld {tmp} z", // 2c
                 "lsl {byte_sampling}", // 1c
                 "brcs 1f", // 1c/2c  (7th bit set -> 1)
                 "brhs 0f", // 1c/2c  (3rd bit set -> 0)
 
                 // stop bit or error (0 bit set or no bits -> stop/error)
-                "andi {byte_sampling} 1",
+                "andi {byte_sampling} 0b10", // original stop bit marker was shifted
                 "breq 99f",  // and 1 is 0 -> stop bit was not set
                 "jmp 100f", // 2c
                 "1:",
