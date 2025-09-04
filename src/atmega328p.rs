@@ -87,7 +87,7 @@ const TIMEOUT_ERROR: u8=1;
 
 #[inline]
 pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<u8, ReadError>{
-    let [high_addr, low_addr] = (data.as_ptr() as u16).to_be_bytes();
+    let [high_addr, low_addr] = (data.as_ptr() as u16).to_be_bytes(); // 3c
     let mut errors:u8;
     let mut byte_sampling:u8;
     let mut bytes_read:u8;
@@ -103,8 +103,10 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                 "breq 98f", // 1c
             "ldi {tmp} 4", // 1c
             "0:",
+                "nop",
                 "dec {tmp}", // 1c
                 "brne 0b", // 2c
+                //16c to ensure the first microsecond passed and we're sampling from the second
             "2:",
                 "sbis {pin} {pin_number}", // 1c/2c/3c
                 "rjmp 0f", // 2c
