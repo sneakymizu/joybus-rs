@@ -87,7 +87,7 @@ const TIMEOUT_ERROR: u8=1;
 
 #[inline]
 pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<u8, ReadError>{
-    let [high_addr, low_addr] = (data.as_ptr() as u16).to_le_bytes();
+    let [high_addr, low_addr] = (data.as_ptr() as u16).to_be_bytes();
     let mut errors:u8;
     let mut byte_sampling:u8;
     let mut bytes_read:u8;
