@@ -101,6 +101,10 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                 "sbic {pin} {pin_number}", // 1c/2c
                 "brne 0b", // 2c/1c
                 "breq 98f", // 1c
+            "ldi {tmp} 4", // 1c
+            "0:",
+                "dec {tmp}", // 1c
+                "brne 0b", // 2c
             "2:",
                 "sbis {pin} {pin_number}", // 1c/2c/3c
                 "rjmp 0f", // 2c
