@@ -71,6 +71,7 @@ pub fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8>(byte: u8) {
 #[derive(uDebug)]
 pub enum ReadError{ // prolly yagni
     Timeout,
+    AlignmentError,
     StopConditionMissmatch(u8),
     UnknownError(u8),
 }
@@ -131,7 +132,7 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                     "dec {tmp}", // 1c
                     "brne 0b", // 1c/2c
                 "mov {current_sample_value} {byte_sampling}", // 1c
-                "inc {bytes_read}", // 1c -> end of block with 15c
+                "nop", // 1c -> end of block with 15c
 
                 "sbic {pin} {pin_number}", // 1c
                 "ori {byte_sampling} 0b00001000", // 1c
@@ -147,26 +148,34 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                 "1:",
                     "lsl {tmp}", // 1c
                     "ori {tmp} 1", // 1c
-                    "st z {tmp}", // 2c
-                    "brcc 1f", //1c/2c
-                    "adiw ZH:ZL 1", // 2c
-                    "brne 2b", // 2c
-                    "1:",
-                    "jmp 2b", // 3c (9c on exit 15c since reading bit)
+                    "rjmp 3f", // 2c (4c on exit)
                 "0:",
                     "lsl {tmp}", // 1c
+                    "rjmp 3f", // 2c (3c on exit, aligns with reading 1 bit due to later jump in)
+                "3:",
+                    // store read bit
                     "st z {tmp}", // 2c
                     "brcc 1f", //1c/2c
                     "adiw ZH:ZL 1", // 2c
                     "brne 2b", // 2c
                     "1:",
-                    "jmp 2b", // 3c (8c on exit 15c since reading bit)
+                    "inc {bytes_read}", // read bit on cycle 18 (3 cycles into the first micro scond of the next bit)
+                    "sbic {pin} {pin_number}", //1c/2c (3c only for jmp)
+                    "rjmp 97f", // 2c (9c on exit 15c since reading bit)
+                    "ldi {tmp} 3",
+                    "0:",
+                        "dec {tmp}",
+                        "brne 0b",
+                    "rjmp 2b", // 2c -> jumping back 31c since sampling last bit, so we should read second microsecond of next bit after jump
+            "97:",
+                "ldi {errors} 3",
+                "rjmp 101f",
             "98:",
                 "ldi {errors} 2",
-                "jmp 101f",
+                "rjmp 101f",
             "99:",
                 "mov {errors} 1",
-                "jmp 101f",
+                "rjmp 101f",
             "100:",
                 "ldi {errors} 0",
             "101:",
@@ -185,6 +194,7 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
         0=>Ok(bytes_read),
         1=>Err(ReadError::StopConditionMissmatch(byte_sampling)),
         2=>Err(ReadError::Timeout),
+        3=>Err(ReadError::AlignmentError),
         _=>Err(ReadError::UnknownError(errors)),
     }
 }
