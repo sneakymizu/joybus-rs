@@ -106,18 +106,17 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                 "rjmp 0f", // 2c
                 "rjmp 1f", // 2c
                 "0:",
-                    "nop",
                     "ldi {byte_sampling} 0", // 1c
-                    "jmp 3f", // 3c
+                    "rjmp 3f", // 2c
                 "1:",
                     "ldi {byte_sampling} 0b10000000", // 1c
-                    "jmp 3f", // 3c
-                "3:", // incomming jumps with 8c
-                    "ldi {tmp} 2",
+                    "nop",
+                "3:", // incomming jumps with 6c
+                    "ldi {tmp} 3",
                     "0:",
                         "dec {tmp}",
                         "brne 0b",
-                "inc {bytes_read}", // 1c -> end of block with 15c
+                // -> end of block with 15c
 
                 "sbic {pin} {pin_number}", // 1c
                 "ori {byte_sampling} 0b00000001", // 1c
@@ -126,7 +125,7 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                     "dec {tmp}", // 1c
                     "brne 0b", // 1c/2c
                 "mov {current_sample_value} {byte_sampling}", // 1c
-                "nop", // 1c -> end of block with 15c
+                "inc {bytes_read}", // 1c -> end of block with 15c
 
                 "sbic {pin} {pin_number}", // 1c
                 "ori {byte_sampling} 0b00001000", // 1c
