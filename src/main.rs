@@ -47,7 +47,7 @@ fn main() -> ! {
     arduino_hal::delay_ms(3000);
     _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
     loop {
-        let mut data = [1u8;4];
+        let mut data = [0u8;4];
         _reader_pin = Either::Left(_reader_pin.right().into_output_high());
         send_byte::<0x0b, 0x06>(n64::commands::POLL_SIGNAL);
         _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());

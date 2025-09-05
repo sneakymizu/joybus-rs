@@ -90,13 +90,13 @@ const TIMEOUT_ERROR: u8=1;
 pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<u8, ReadError>{
     let [high_addr, low_addr] = (data.as_ptr() as u16).to_be_bytes(); // 3c
     let mut errors:u8;
-    let mut byte_sampling:u8;
+    let mut current_sampling_value:u8;
     let mut bytes_read:u8;
     unsafe {
         asm!{
             // sync with signal
             "ldi {bytes_read} 0",
-            "ldi {bits_read} 1",
+            "ldi {current_bit_read} 1",
             "ldi {tmp} 12",
             "0:", // 1 loop -> 4c
                 "dec {tmp}", // 1c
@@ -139,33 +139,36 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
 
                 "sbic {pin} {pin_number}", // 1c/2c
                 "ori {bit_sampling} 0b00001000", // 1c
-                "mov {currently_sampled_bit} {bit_sampling}", // 1c
+                "mov {current_sampling_value} {bit_sampling}", // 1c
                 "lsl {bit_sampling}", // 1c
                 "brcs 1f", // 1c/2c  (7th bit set -> 1)
                 "brhs 0f", // 1c/2c  (3rd bit set -> 0)
 
                 // stop bit or error (0 bit set or no bits -> stop/error)
                 "andi {bit_sampling} 0b10", // original stop bit marker was shifted
-                "breq 99f",  // and 1 is 0 -> stop bit was not set
+                "breq 99f",  // (andi 0b10) == 0 -> stop bit was not set
                 "jmp 100f", // 2c
                 "1:",
-                    "lsl {tmp}", // 1c
-                    "ori {tmp} 1", // 1c
+                    "lsl {current_byte}", // 1c
+                    "ori {current_byte} 1", // 1c
                     "rjmp 3f", // 2c (4c on exit)
                 "0:",
-                    "lsl {tmp}", // 1c
+                    "lsl {current_byte}", // 1c
                     "rjmp 3f", // 2c (3c on exit, aligns with reading 1 bit due to later jump in)
-                "3:",  // 10c since sampling 19 remaining
+                "3:",  // 9c since sampling 20 remaining
                     // store read bit
-                    "st z {tmp}", // 2c
+                    "lsl {current_bit_read}", // 1c
                     "brcc 1f", //1c/2c
-                    "adiw ZH:ZL 1", // 2c
+                    "st z+ {current_byte}", // 2c
+                    "ld {current_byte} z", // 2c
+                    "ldi {current_bit_read} 1", // 1c
                     "inc {bytes_read}", // 1c
                     "rjmp 0f", // 2c
                     "1:",
-                        "nop", // 1c
-                        "nop", // 1c
-                        "nop", // 1c
+                        "ldi {tmp} 2",  // total of 2*3=6 cycles
+                        "0:",
+                            "dec {tmp}",
+                            "brne 0b",
                         "nop", // 1c
                     "0:",
                         "sbic {pin} {pin_number}", //1c/2c (3c only for jmp)
@@ -190,10 +193,10 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
             pin=const PIN,
             pin_number=const PIN_NUMBER,
             bit_sampling=out(reg) _,
-            currently_sampled_bit=out(reg) byte_sampling,
+            current_sampling_value=out(reg) current_sampling_value,
             current_byte=out(reg) _,
             bytes_read=out(reg) bytes_read,
-            bits_read=out(reg) _,
+            current_bit_read=out(reg) _,
             in("ZL") low_addr,
             in("ZH") high_addr,
             tmp=out(reg) _,
@@ -202,7 +205,7 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
     }
     match errors{
         0=>Ok(bytes_read),
-        1=>Err(ReadError::StopConditionMissmatch(byte_sampling)),
+        1=>Err(ReadError::StopConditionMissmatch(current_sampling_value)),
         2=>Err(ReadError::Timeout),
         3=>Err(ReadError::AlignmentError),
         _=>Err(ReadError::UnknownError(errors)),
