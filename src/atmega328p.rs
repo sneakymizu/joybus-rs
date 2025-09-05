@@ -104,10 +104,10 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                 "breq 98f", // 1c
             "ldi {tmp} 4", // 1c
             "0:",
-                "nop",
+                "nop", // 1c
                 "dec {tmp}", // 1c
                 "brne 0b", // 2c
-                //16c to ensure the first microsecond passed and we're sampling from the second
+                //16c to ensure the first microsecond passed and we're sampling from the second microsecond
             "2:",
                 "sbis {pin} {pin_number}", // 1c/2c/3c
                 "rjmp 0f", // 2c
@@ -157,16 +157,19 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                     "st z {tmp}", // 2c
                     "brcc 1f", //1c/2c
                     "adiw ZH:ZL 1", // 2c
-                    "brne 2b", // 2c
+                    "inc {bytes_read}", // 1c
+                    "rjmp 0f", // 2c
                     "1:",
-                    "inc {bytes_read}", // read bit on cycle 18 (3 cycles into the first micro scond of the next bit)
-                    "sbic {pin} {pin_number}", //1c/2c (3c only for jmp)
-                    "rjmp 97f", // 2c (9c on exit 15c since reading bit)
-                    "ldi {tmp} 3",
+                        "nop", // 1c
+                        "nop", // 1c
                     "0:",
-                        "dec {tmp}",
-                        "brne 0b",
-                    "rjmp 2b", // 2c -> jumping back 31c since sampling last bit, so we should read second microsecond of next bit after jump
+                        "sbic {pin} {pin_number}", //1c/2c (3c only for jmp)
+                        "rjmp 97f", // 2c (9c on exit 15c since reading bit)
+                    "ldi {tmp} 3", // 1c
+                    "0:",
+                        "dec {tmp}", // 1c
+                        "brne 0b", // 1c/2c
+                    "rjmp 2b", // 2c -> jumping back with 31c since sampling last bit, so we should read second microsecond of next bit after jump
             "97:",
                 "ldi {errors} 3",
                 "rjmp 101f",
