@@ -103,12 +103,10 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                 "sbic {pin} {pin_number}", // 1c/2c
                 "brne 0b", // 2c/1c
                 "breq 98f", // 1c
-            "ldi {tmp} 4", // 1c
+            "ldi {tmp} 5", // 1c
             "0:",
                 "dec {tmp}", // 1c
                 "brne 0b", // 2c
-            "ld {current_byte} z", // 2c
-            "nop", // 1c
             //15c to ensure the first microsecond passed and we're sampling from the second microsecond - sample on cycle 16
             "2:",
                 "sbis {pin} {pin_number}", // 1c/2c
@@ -166,9 +164,9 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                     "rjmp 0f", // 2c
                     "1:",
                         "ldi {tmp} 2",  // total of 2*3=6 cycles
-                        "0:",
+                        "1:",
                             "dec {tmp}",
-                            "brne 0b",
+                            "brne 1b",
                         "nop", // 1c
                     "0:",
                         "sbic {pin} {pin_number}", //1c/2c (3c only for jmp)
