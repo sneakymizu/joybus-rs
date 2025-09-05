@@ -96,27 +96,30 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
         asm!{
             // sync with signal
             "ldi {bytes_read} 0",
+            "ldi {bits_read} 1",
             "ldi {tmp} 12",
             "0:", // 1 loop -> 4c
                 "dec {tmp}", // 1c
                 "sbic {pin} {pin_number}", // 1c/2c
                 "brne 0b", // 2c/1c
                 "breq 98f", // 1c
-            "ldi {tmp} 5", // 1c
+            "ldi {tmp} 4", // 1c
             "0:",
                 "dec {tmp}", // 1c
                 "brne 0b", // 2c
-                //15c to ensure the first microsecond passed and we're sampling from the second microsecond - sample on cycle 16
+            "ld {current_byte} z", // 2c
+            "nop", // 1c
+            //15c to ensure the first microsecond passed and we're sampling from the second microsecond - sample on cycle 16
             "2:",
                 "sbis {pin} {pin_number}", // 1c/2c
                 "rjmp 0f", // 2c
                 "rjmp 1f", // 2c
                 "0:",
-                    "ldi {byte_sampling} 0", // 1c
+                    "ldi {bit_sampling} 0", // 1c
                     "rjmp 3f", // 2c
                 "1:",
-                    "ldi {byte_sampling} 0b10000000", // 1c
-                    "nop",
+                    "ldi {bit_sampling} 0b10000000", // 1c
+                    "nop", // 1c
                 "3:", // incomming jumps with 5c since read (assuming read is always done after first sbi* cycle)
                     "ldi {tmp} 3",
                     "0:",
@@ -126,23 +129,23 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                 // -> end of block with 15c
 
                 "sbic {pin} {pin_number}", // 1c/2c
-                "ori {byte_sampling} 0b00000001", // 1c
+                "ori {bit_sampling} 0b00000001", // 1c
                 "ldi {tmp} 4", // 1c
                 "0:",
                     "dec {tmp}", // 1c
                     "brne 0b", // 1c/2c
-                "mov {current_sample_value} {byte_sampling}", // 1c
+                "nop", // 1c
                 "nop", // 1c -> end of block with 15c
 
                 "sbic {pin} {pin_number}", // 1c/2c
-                "ori {byte_sampling} 0b00001000", // 1c
-                "ld {tmp} z", // 2c
-                "lsl {byte_sampling}", // 1c
+                "ori {bit_sampling} 0b00001000", // 1c
+                "mov {currently_sampled_bit} {bit_sampling}", // 1c
+                "lsl {bit_sampling}", // 1c
                 "brcs 1f", // 1c/2c  (7th bit set -> 1)
                 "brhs 0f", // 1c/2c  (3rd bit set -> 0)
 
                 // stop bit or error (0 bit set or no bits -> stop/error)
-                "andi {byte_sampling} 0b10", // original stop bit marker was shifted
+                "andi {bit_sampling} 0b10", // original stop bit marker was shifted
                 "breq 99f",  // and 1 is 0 -> stop bit was not set
                 "jmp 100f", // 2c
                 "1:",
@@ -186,9 +189,11 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
             "101:",
             pin=const PIN,
             pin_number=const PIN_NUMBER,
-            byte_sampling=out(reg) _,
-            current_sample_value=out(reg) byte_sampling,
+            bit_sampling=out(reg) _,
+            currently_sampled_bit=out(reg) byte_sampling,
+            current_byte=out(reg) _,
             bytes_read=out(reg) bytes_read,
+            bits_read=out(reg) _,
             in("ZL") low_addr,
             in("ZH") high_addr,
             tmp=out(reg) _,
