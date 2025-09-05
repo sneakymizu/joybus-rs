@@ -71,7 +71,8 @@ pub fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8>(byte: u8) {
 #[derive(uDebug)]
 pub enum ReadError{ // prolly yagni
     Timeout,
-    AlignmentError,
+    SignalStayedLow(u8),
+    SignalStayedHigh,
     StopConditionMissmatch(u8),
     UnknownError(u8),
 }
@@ -113,30 +114,32 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                 "rjmp 0f", // 2c
                 "rjmp 1f", // 2c
                 "0:",
-                    "ldi {bit_sampling} 0", // 1c
+                    "ldi {bit_sampling} 0", // 1c, setup for 0 sample value as either logic 0 or stop signal
                     "rjmp 3f", // 2c
                 "1:",
-                    "ldi {bit_sampling} 0b10000000", // 1c
+                    "ldi {bit_sampling} 0b10000000", // 1c, setup for carry check on high -> logic 1
                     "nop", // 1c
                 "3:", // incomming jumps with 5c since read (assuming read is always done after first sbi* cycle)
                     "ldi {tmp} 3",
                     "0:",
                         "dec {tmp}",
                         "brne 0b",
-                "nop",
-                // -> end of second microsecond (possible high or stop bit) with 15c
+                "nop", // -> end of second microsecond (possible high or stop bit) with 15c. Next line is in the third microsecond.
 
-                "sbic {pin} {pin_number}", // 1c/2c
-                "ori {bit_sampling} 0b00000001", // 1c
+                "sbis {pin} {pin_number}", // 1c/2c
+                "ori {bit_sampling} 0b00001000", // 1c, setup for halfcarry check on low -> logic 0
                 "ldi {tmp} 4", // 1c
                 "0:",
                     "dec {tmp}", // 1c
                     "brne 0b", // 1c/2c
                 "nop", // 1c
-                "nop", // 1c -> end of third microsecond (possible zero bit) with 15c
+                "nop", // 1c -> end of third microsecond (possible zero bit) with 15c. Next line is in the fourth microsecond.
 
                 "sbic {pin} {pin_number}", // 1c/2c
-                "ori {bit_sampling} 0b00001000", // 1c
+                "rjmp 4f", // 2c. Bit is now sampled. If this is skipped, there is an error
+                "rjmp 97f",
+                "4:",  // enter with 2c from reading
+                "nop", // 1c
                 "mov {current_sampling_value} {bit_sampling}", // 1c
                 "lsl {bit_sampling}", // 1c
                 "brcs 1f", // 1c/2c  (7th bit set -> 1)
@@ -153,30 +156,36 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                 "0:",
                     "lsl {current_byte}", // 1c
                     "rjmp 3f", // 2c (3c on exit, aligns with reading 1 bit due to later jump in)
-                "3:",  // 9c since sampling 20 remaining
+                "3:",  // 11c since sampling 18c remaining
                     // store read bit
                     "lsl {current_bit_read}", // 1c
                     "brcc 1f", //1c/2c
                     "st z+ {current_byte}", // 2c
+                    "sbic {pin} {pin_number}", //1c/2c | check if first microsecond of bit is low
+                    "rjmp 96f", // (2c)
                     "ld {current_byte} z", // 2c
                     "ldi {current_bit_read} 1", // 1c
                     "inc {bytes_read}", // 1c
                     "rjmp 0f", // 2c
                     "1:",
                         "ldi {tmp} 2",  // total of 2*3=6 cycles
+                        "sbic {pin} {pin_number}", //1c/2c | check if first microsecond of bit is low
+                        "rjmp 96f", // (2c)
                         "1:",
                             "dec {tmp}",
                             "brne 1b",
                         "nop", // 1c
-                    "0:",
-                        "sbic {pin} {pin_number}", //1c/2c (3c only for jmp)
-                        "rjmp 97f", // 2c (9c on exit 15c since reading bit)
-                    "ldi {tmp} 3", // 1c
+                    "0:", // enter here with 12c since label 3b
+                    "ldi {tmp} 2", // 1c
                     "0:",
                         "dec {tmp}", // 1c
                         "brne 0b", // 1c/2c
                     "rjmp 2b", // 2c -> jumping back with 31c since sampling last bit, so we should read second microsecond of next bit after jump
+            "96:",
+                "ldi {errors} 4",
+                "rjmp 101f",
             "97:",
+                "mov {current_sampling_value} {bit_sampling}", // 1c
                 "ldi {errors} 3",
                 "rjmp 101f",
             "98:",
@@ -205,7 +214,8 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
         0=>Ok(bytes_read),
         1=>Err(ReadError::StopConditionMissmatch(current_sampling_value)),
         2=>Err(ReadError::Timeout),
-        3=>Err(ReadError::AlignmentError),
+        3=>Err(ReadError::SignalStayedLow(current_sampling_value)),
+        4=>Err(ReadError::SignalStayedHigh),
         _=>Err(ReadError::UnknownError(errors)),
     }
 }
