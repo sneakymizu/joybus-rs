@@ -124,7 +124,7 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                         "dec {tmp}",
                         "brne 0b",
                 "nop",
-                // -> end of block with 15c
+                // -> end of second microsecond (possible high or stop bit) with 15c
 
                 "sbic {pin} {pin_number}", // 1c/2c
                 "ori {bit_sampling} 0b00000001", // 1c
@@ -133,7 +133,7 @@ pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<
                     "dec {tmp}", // 1c
                     "brne 0b", // 1c/2c
                 "nop", // 1c
-                "nop", // 1c -> end of block with 15c
+                "nop", // 1c -> end of third microsecond (possible zero bit) with 15c
 
                 "sbic {pin} {pin_number}", // 1c/2c
                 "ori {bit_sampling} 0b00001000", // 1c
