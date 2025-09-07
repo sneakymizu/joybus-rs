@@ -1,6 +1,7 @@
 #[cfg(atmega328p)]
 
 use core::arch::asm;
+use arduino_hal::{pac::tc0::TCNT0, port::{mode::{Input, PullUp}, Pin}};
 use ufmt::derive::uDebug;
 
 // assumes the given port is configured as output
@@ -88,134 +89,33 @@ impl From<u8> for ReadError{
 const TIMEOUT_ERROR: u8=1;
 
 #[inline]
-pub fn read_bytes<const PIN:u8, const PIN_NUMBER: u8>(data:&mut [u8;4])->Result<u8, ReadError>{
-    let [high_addr, low_addr] = (data.as_ptr() as u16).to_be_bytes(); // 3c
-    let mut errors:u8;
-    let mut current_sampling_value:u8;
-    let mut bytes_read:u8;
-    unsafe {
-        asm!{
-            // sync with signal
-            "ldi {bytes_read} 0",
-            "ldi {current_bit_read} 1",
-            "ldi {tmp} 12",
-            "0:", // 1 loop -> 4c
-                "dec {tmp}", // 1c
-                "sbic {pin} {pin_number}", // 1c/2c
-                "brne 0b", // 2c/1c
-                "breq 98f", // 1c
-            "ldi {tmp} 5", // 1c
-            "0:",
-                "dec {tmp}", // 1c
-                "brne 0b", // 2c
-            //15c to ensure the first microsecond passed and we're sampling from the second microsecond - sample on cycle 16
-            "2:",
-                "sbis {pin} {pin_number}", // 1c/2c
-                "rjmp 0f", // 2c
-                "rjmp 1f", // 2c
-                "0:",
-                    "ldi {bit_sampling} 0", // 1c, setup for 0 sample value as either logic 0 or stop signal
-                    "rjmp 3f", // 2c
-                "1:",
-                    "ldi {bit_sampling} 0b10000000", // 1c, setup for carry check on high -> logic 1
-                    "nop", // 1c
-                "3:", // incomming jumps with 5c since read (assuming read is always done after first sbi* cycle)
-                    "ldi {tmp} 3",
-                    "0:",
-                        "dec {tmp}",
-                        "brne 0b",
-                "nop", // -> end of second microsecond (possible high or stop bit) with 15c. Next line is in the third microsecond.
-
-                "sbis {pin} {pin_number}", // 1c/2c
-                "ori {bit_sampling} 0b00001000", // 1c, setup for halfcarry check on low -> logic 0
-                "ldi {tmp} 4", // 1c
-                "0:",
-                    "dec {tmp}", // 1c
-                    "brne 0b", // 1c/2c
-                "nop", // 1c
-                "nop", // 1c -> end of third microsecond (possible zero bit) with 15c. Next line is in the fourth microsecond.
-
-                "sbic {pin} {pin_number}", // 1c/2c
-                "rjmp 4f", // 2c. Bit is now sampled. If this is skipped, there is an error
-                "rjmp 97f",
-                "4:",  // enter with 2c from reading
-                "nop", // 1c
-                "mov {current_sampling_value} {bit_sampling}", // 1c
-                "lsl {bit_sampling}", // 1c
-                "brcs 1f", // 1c/2c  (7th bit set -> 1)
-                "brhs 0f", // 1c/2c  (3rd bit set -> 0)
-
-                // stop bit or error (0 bit set or no bits -> stop/error)
-                "andi {bit_sampling} 0b10", // original stop bit marker was shifted
-                "breq 99f",  // (andi 0b10) == 0 -> stop bit was not set
-                "jmp 100f", // 2c
-                "1:",
-                    "lsl {current_byte}", // 1c
-                    "ori {current_byte} 1", // 1c
-                    "rjmp 3f", // 2c (4c on exit)
-                "0:",
-                    "lsl {current_byte}", // 1c
-                    "rjmp 3f", // 2c (3c on exit, aligns with reading 1 bit due to later jump in)
-                "3:",  // 11c since sampling 18c remaining
-                    // store read bit
-                    "lsl {current_bit_read}", // 1c
-                    "brcc 1f", //1c/2c
-                    "st z+ {current_byte}", // 2c
-                    "sbic {pin} {pin_number}", //1c/2c | check if first microsecond of bit is low
-                    "rjmp 96f", // (2c)
-                    "ld {current_byte} z", // 2c
-                    "ldi {current_bit_read} 1", // 1c
-                    "inc {bytes_read}", // 1c
-                    "rjmp 0f", // 2c
-                    "1:",
-                        "ldi {tmp} 2",  // total of 2*3=6 cycles
-                        "sbic {pin} {pin_number}", //1c/2c | check if first microsecond of bit is low
-                        "rjmp 96f", // (2c)
-                        "1:",
-                            "dec {tmp}",
-                            "brne 1b",
-                        "nop", // 1c
-                    "0:", // enter here with 12c since label 3b
-                    "ldi {tmp} 2", // 1c
-                    "0:",
-                        "dec {tmp}", // 1c
-                        "brne 0b", // 1c/2c
-                    "rjmp 2b", // 2c -> jumping back with 31c since sampling last bit, so we should read second microsecond of next bit after jump
-            "96:",
-                "ldi {errors} 4",
-                "rjmp 101f",
-            "97:",
-                "mov {current_sampling_value} {bit_sampling}", // 1c
-                "ldi {errors} 3",
-                "rjmp 101f",
-            "98:",
-                "ldi {errors} 2",
-                "rjmp 101f",
-            "99:",
-                "mov {errors} 1",
-                "rjmp 101f",
-            "100:",
-                "ldi {errors} 0",
-            "101:",
-            pin=const PIN,
-            pin_number=const PIN_NUMBER,
-            bit_sampling=out(reg) _,
-            current_sampling_value=out(reg) current_sampling_value,
-            current_byte=out(reg) _,
-            bytes_read=out(reg) bytes_read,
-            current_bit_read=out(reg) _,
-            in("ZL") low_addr,
-            in("ZH") high_addr,
-            tmp=out(reg) _,
-            errors=out(reg) errors,
+pub fn read_bytes(pin: &Pin<Input<PullUp>>, timer_counter: *mut u8, data:&mut [u8;4])->Result<u8, ReadError>{
+    let mut current_bit_index = 128u8;
+    let mut current_byte_index = 0u8;
+    loop{
+        while pin.is_high(){}
+        unsafe {
+            *timer_counter = 0;
+        }
+        while pin.is_low(){}
+        let v = unsafe {
+            *timer_counter
+        };
+        data[current_byte_index as usize] |= if v <= 16{
+            current_bit_index
+        }else if v <=32{
+            break  // stop bit
+        }else{
+            0
+        };
+        current_bit_index=current_bit_index>>1;
+        if current_bit_index==0{
+            current_bit_index=128u8;
+            current_byte_index+=1;
+        }
+        if current_byte_index>5{
+            break;
         }
     }
-    match errors{
-        0=>Ok(bytes_read),
-        1=>Err(ReadError::StopConditionMissmatch(current_sampling_value)),
-        2=>Err(ReadError::Timeout),
-        3=>Err(ReadError::SignalStayedLow(current_sampling_value)),
-        4=>Err(ReadError::SignalStayedHigh),
-        _=>Err(ReadError::UnknownError(errors)),
-    }
+    Ok(current_byte_index)
 }
