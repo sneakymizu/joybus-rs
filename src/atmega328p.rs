@@ -1,7 +1,6 @@
 #[cfg(atmega328p)]
 
 use core::arch::asm;
-use arduino_hal::{pac::tc0::TCNT0, port::{mode::{Input, PullUp}, Pin}};
 use ufmt::derive::uDebug;
 
 // assumes the given port is configured as output
@@ -70,52 +69,96 @@ pub fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8>(byte: u8) {
     }
 }
 #[derive(uDebug)]
-pub enum ReadError{ // prolly yagni
-    Timeout,
-    SignalStayedLow(u8),
-    SignalStayedHigh,
+pub enum ReadError{
+    OutOfMemory(u8),
     StopConditionMissmatch(u8),
     UnknownError(u8),
 }
-impl From<u8> for ReadError{
 
-    fn from(value: u8) -> Self {
-        match value{
-            TIMEOUT_ERROR=>ReadError::Timeout,
-            _=>ReadError::UnknownError(value)
-        }
-    }
-}
-const TIMEOUT_ERROR: u8=1;
+const MINIMUM_LOW_CYCLES_FOR_0:u8=40; // each loop for pin check might exit with 4 cycles wasted
+const MAXIMUM_LOW_CYCLES_FOR_1:u8=17; // compares against lower
+const MAXIMUM_LOW_CYCLES_FOR_CONTROLLER_STOP:u8=33; // compares against lower
 
 #[inline]
-pub fn read_bytes(pin: &Pin<Input<PullUp>>, timer_counter: *mut u8, data:&mut [u8;4])->Result<u8, ReadError>{
-    let mut current_bit_index = 128u8;
-    let mut current_byte_index = 0u8;
-    loop{
-        while pin.is_high(){}
-        unsafe {
-            *timer_counter = 0;
-        }
-        while pin.is_low(){}
-        let v = unsafe {
-            *timer_counter
-        };
-        data[current_byte_index as usize] |= if v <= 16{
-            current_bit_index
-        }else if v <=32{
-            break  // stop bit
-        }else{
-            0
-        };
-        current_bit_index=current_bit_index>>1;
-        if current_bit_index==0{
-            current_bit_index=128u8;
-            current_byte_index+=1;
-        }
-        if current_byte_index>5{
-            break;
+pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mut [u8;4])->Result<u8, ReadError>{
+    let [high_addr, low_addr] = (data.as_ptr() as u16).to_be_bytes(); // 3c
+    let mut errors:u8;
+    let mut bytes_read_or_additional_error_information=0u8;
+    let read_bit_position=1u8;
+    unsafe{
+        asm!{
+            "ld {current_byte} z",
+            // wait for low
+            "2:",
+                "sbic {pin} {pin_number}",
+                "rjmp 2b",
+
+            // there should be at least 13 cycles here to do some memory management
+            "out {timer_counter_register} 0", // 21c worst case -> 11 cycles remaining until high is expected
+            "cpi {read_bit_position} 0",
+            "breq 0f",
+            "st z+ {current_byte}",
+            "inc {bytes_read}",
+            "ldi {read_bit_position} 1",
+            "cpi {bytes_read} 5", // ensure we're not reading beyond our memory
+            "breq 100f",
+            "ld {current_byte} z", // else load byte
+            // end of the stuff that might be tricky to do
+            // in the last high microsecond of a logic 0
+
+            // check for high again
+            "0:",
+                "sbis {pin} {pin_number}",
+                "rjmp 0b",
+            // check time sample
+            "in {low_time_register} {timer_counter_register}", // 21c worst case -> 11 cycles remaining
+            "cpi {low_time_register} {low}",
+            "brge 0f",
+            "cpi {low_time_register} {high}",
+            "brlo 1f",
+            "cpi {low_time_register} {controller_stop}",
+            "brlo 101f",
+            "rjmp 99f",
+            // store time sample
+            "1:",
+                "lsl {current_byte}",
+                "ori {current_byte} 1",
+                 // as 1 has a broader window for checking next low, the jump should be done here not for reading 0
+                "rjmp 3f",
+            "0:",
+                "lsl {current_byte}",
+            "3:",
+                "lsl {read_bit_position}",
+                "rjmp 2b",
+
+            // errors and exit
+            "99:",
+                "ldi {errors} 2",
+                "mov {bytes_read} {low_time_register}",
+                "rjmp 101f",
+            "100:",
+                "ldi {errors} 1",
+                "rjmp 101f",
+            "101:",
+            read_bit_position=in(reg) read_bit_position,
+            bytes_read=inout(reg) bytes_read_or_additional_error_information,
+            errors=out(reg) errors,
+            low_time_register=out(reg) _,
+            current_byte=out(reg) _,
+            pin=const PIN,
+            pin_number=const PIN_NUMBER,
+            timer_counter_register=const TIMER,
+            in("ZL") low_addr,
+            in("ZH") high_addr,
+            low=const MINIMUM_LOW_CYCLES_FOR_0,
+            high=const MAXIMUM_LOW_CYCLES_FOR_1,
+            controller_stop=const MAXIMUM_LOW_CYCLES_FOR_CONTROLLER_STOP,
         }
     }
-    Ok(current_byte_index)
+    match errors{
+        0=>Ok(bytes_read_or_additional_error_information),
+        1=>Err(ReadError::StopConditionMissmatch(bytes_read_or_additional_error_information)),
+        2=>Err(ReadError::OutOfMemory(bytes_read_or_additional_error_information)),
+        _=>Err(ReadError::UnknownError(errors)),
+    }
 }

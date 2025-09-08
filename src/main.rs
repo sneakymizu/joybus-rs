@@ -3,8 +3,6 @@
 #![feature(asm_experimental_arch)]
 #![feature(asm_const)]
 
-use core::{any::Any, arch::asm};
-
 use panic_halt as _;
 use ufmt::uwriteln;
 
@@ -55,7 +53,7 @@ fn main() -> ! {
         _reader_pin = Either::Left(_reader_pin.right().into_output_high());
         send_byte::<0x0b, 0x06>(n64::commands::POLL_SIGNAL);
         let pin = _reader_pin.left().into_pull_up_input();
-        let _ = match read_bytes(&pin, timer.tcnt0.as_ptr(), &mut data){
+        let _ = match read_bytes::<0x9, 0x6, 0x26>(&mut data){
             Ok(b) => uwriteln!(serial, "Bytes are {:?} {:?}\r", b, data),
             Err(e) => uwriteln!(serial, "Got error {:?}\r", e),
         };
