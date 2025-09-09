@@ -75,7 +75,7 @@ pub enum ReadError{
     UnknownError(u8),
 }
 
-const MINIMUM_LOW_CYCLES_FOR_0:u8=40; // each loop for pin check might exit with 4 cycles wasted
+const MINIMUM_LOW_CYCLES_FOR_0:u8=32; // each loop for pin check might exit with 4 cycles wasted
 const MAXIMUM_LOW_CYCLES_FOR_1:u8=17; // compares against lower
 const MAXIMUM_LOW_CYCLES_FOR_CONTROLLER_STOP:u8=33; // compares against lower
 
