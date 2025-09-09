@@ -101,7 +101,7 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
             "inc {bytes_read}",
             "ldi {read_bit_position} 1",
             "cpi {bytes_read} 5", // ensure we're not reading beyond our memory
-            "breq 100f",
+            "breq 99f",
             "ld {current_byte} z", // else load byte
             // end of the stuff that might be tricky to do
             // in the last high microsecond of a logic 0
@@ -117,8 +117,8 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
             "cpi {low_time_register} {high}",
             "brlo 1f",
             "cpi {low_time_register} {controller_stop}",
-            "brlo 101f",
-            "rjmp 99f",
+            "brlo 100f",
+            "rjmp 98f",
             // store time sample
             "1:",
                 "lsl {current_byte}",
@@ -132,13 +132,15 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
                 "rjmp 2b",
 
             // errors and exit
-            "99:",
+            "98:",
                 "ldi {errors} 2",
                 "mov {bytes_read} {low_time_register}",
                 "rjmp 101f",
-            "100:",
+            "99:",
                 "ldi {errors} 1",
                 "rjmp 101f",
+            "100:",
+                "ldi {errors} 0",
             "101:",
             read_bit_position=in(reg) read_bit_position,
             bytes_read=inout(reg) bytes_read_or_additional_error_information,
