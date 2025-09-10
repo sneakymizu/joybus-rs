@@ -71,13 +71,11 @@ pub fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8>(byte: u8) {
 #[derive(uDebug)]
 pub enum ReadError{
     OutOfMemory(u8),
-    StopConditionMissmatch(u8),
     UnknownError(u8),
 }
 
-const MINIMUM_LOW_CYCLES_FOR_0:u8=32; // each loop for pin check might exit with 4 cycles wasted
+const MINIMUM_LOW_CYCLES_FOR_0:u8=27; // each loop for pin check might exit with 4~5 cycles wasted
 const MAXIMUM_LOW_CYCLES_FOR_1:u8=17; // compares against lower
-const MAXIMUM_LOW_CYCLES_FOR_CONTROLLER_STOP:u8=33; // compares against lower
 
 #[inline]
 pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mut [u8;4])->Result<u8, ReadError>{
@@ -96,7 +94,7 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
             // there should be at least 13 cycles here to do some memory management
             "out {timer_counter_register} 0", // 21c worst case -> 11 cycles remaining until high is expected
             "cpi {read_bit_position} 0",
-            "breq 0f",
+            "brne 0f",
             "st z+ {current_byte}",
             "inc {bytes_read}",
             "ldi {read_bit_position} 1",
@@ -116,9 +114,7 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
             "brge 0f",
             "cpi {low_time_register} {high}",
             "brlo 1f",
-            "cpi {low_time_register} {controller_stop}",
-            "brlo 100f",
-            "rjmp 98f",
+            "rjmp 100f",
             // store time sample
             "1:",
                 "lsl {current_byte}",
@@ -132,12 +128,8 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
                 "rjmp 2b",
 
             // errors and exit
-            "98:",
-                "ldi {errors} 2",
-                "mov {bytes_read} {low_time_register}",
-                "rjmp 101f",
             "99:",
-                "ldi {errors} 1",
+                "ldi {errors} 99",
                 "rjmp 101f",
             "100:",
                 "ldi {errors} 0",
@@ -154,13 +146,11 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
             in("ZH") high_addr,
             low=const MINIMUM_LOW_CYCLES_FOR_0,
             high=const MAXIMUM_LOW_CYCLES_FOR_1,
-            controller_stop=const MAXIMUM_LOW_CYCLES_FOR_CONTROLLER_STOP,
         }
     }
     match errors{
         0=>Ok(bytes_read_or_additional_error_information),
-        1=>Err(ReadError::StopConditionMissmatch(bytes_read_or_additional_error_information)),
-        2=>Err(ReadError::OutOfMemory(bytes_read_or_additional_error_information)),
+        99=>Err(ReadError::OutOfMemory(bytes_read_or_additional_error_information)),
         _=>Err(ReadError::UnknownError(errors)),
     }
 }
