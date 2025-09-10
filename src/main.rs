@@ -56,7 +56,8 @@ fn main() -> ! {
         send_byte::<0x0b, 0x06>(n64::commands::POLL_SIGNAL);
         let pin = _reader_pin.left().into_pull_up_input();
         let _ = match read_bytes::<0x9, 0x6, 0x26>(&mut data){
-            Ok(b) => uwriteln!(serial, "Bytes are {:?} {:?}\r", b, data),
+            Ok(b) => uwriteln!(serial, "(Stop-bit) Bytes are {:?} {:?}\r", b, data),
+            Err(ReadError::OutOfMemory(len)) => uwriteln!(serial, "(No Stopbit) Bytes are {:?}: {:?}\r", len, data),
             Err(e) => uwriteln!(serial, "Got error {:?}\r", e),
         };
         _reader_pin = Either::Right(pin);
