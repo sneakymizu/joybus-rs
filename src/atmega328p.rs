@@ -74,7 +74,7 @@ pub enum ReadError{
     UnknownError(u8),
 }
 
-const MINIMUM_LOW_CYCLES_FOR_0:u8=27; // each loop for pin check might exit with 4~5 cycles wasted
+const MINIMUM_LOW_CYCLES_FOR_0:u8=44; // each loop for pin check might exit with 4~5 cycles wasted
 const MAXIMUM_LOW_CYCLES_FOR_1:u8=17; // compares against lower
 
 #[inline]
@@ -86,23 +86,22 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
         asm!{
             "ld {current_byte} z",
             "ldi {read_bit_position} 1",
+            "ldi {timer_reset_value} 0",
             // wait for low
             "2:",
                 "sbic {pin} {pin_number}",
                 "rjmp 2b",
 
             // there should be at least 13 cycles here to do some memory management
-            "out {timer_counter_register} 0", // 21c worst case -> 11 cycles remaining until high is expected
+            "out {timer_counter_register} {timer_reset_value}", // 21c worst case -> 11 cycles remaining until high is expected
             "cpi {read_bit_position} 0",
             "brne 0f",
-            "sbi 0xb 7",
             "st z+ {current_byte}",
             "inc {bytes_read}",
             "ldi {read_bit_position} 1",
             "cpi {bytes_read} 4", // ensure we're not reading beyond our memory
             "breq 99f",
             "ld {current_byte} z", // else load byte
-            "cbi 0xb 7",
             // end of the stuff that might be tricky to do
             // in the last high microsecond of a logic 0
 
@@ -135,6 +134,7 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
             bytes_read=inout(reg) bytes_read_or_additional_error_information,
             errors=out(reg) errors,
             low_time_register=out(reg) _,
+            timer_reset_value=out(reg) _,
             current_byte=out(reg) _,
             pin=const PIN,
             pin_number=const PIN_NUMBER,
