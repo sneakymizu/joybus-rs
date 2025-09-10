@@ -74,8 +74,10 @@ pub enum ReadError{
     UnknownError(u8),
 }
 
-const MINIMUM_LOW_CYCLES_FOR_0:u8=44; // each loop for pin check might exit with 4~5 cycles wasted
-const MAXIMUM_LOW_CYCLES_FOR_1:u8=17; // compares against lower
+ // each loop for pin check might exit with 4~5 cycles wasted & third party controllers aren't too specific about timing so this expects more than "stopbit"-low
+const MINIMUM_LOW_CYCLES_FOR_0:u8=33;
+ // 16+5 cycles, compares against lower
+const MAXIMUM_LOW_CYCLES_FOR_1:u8=22;
 
 #[inline]
 pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mut [u8;4])->Result<u8, ReadError>{
@@ -115,7 +117,7 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
             "brlo 1f",
             "cpi {low_time_register} {min_for_low}",
             "brge 0f", // do nothing, just increment reading bit position
-            "rjmp 100f",
+            "rjmp 100f",  // not high, not low, prolly controller stop bit...
             // store time sample
             "1:",
                 "or {current_byte} {read_bit_position}",
