@@ -3,10 +3,12 @@
 #![feature(asm_experimental_arch)]
 #![feature(asm_const)]
 
+use core::arch::asm;
+
 use panic_halt as _;
 use ufmt::uwriteln;
 
-use crate::atmega328p::{read_bytes, send_byte};
+use crate::atmega328p::{read_bytes, send_byte, ReadError};
 
 mod atmega328p;
 mod n64;
@@ -35,7 +37,7 @@ fn main() -> ! {
     let timer = dp.TC0;
     // normal operating timer
     timer.tccr0a.reset();
-    timer.tccr0b.reset();  // no preset, normal timer operation
+    timer.tccr0b.write(|w|w.cs0().direct());  // no prescale, normal timer operation
     let pins = arduino_hal::pins!(dp);
     // Digital pin 13 is also connected to an onboard LED marked "L"
     let mut led_pin = pins.d13.into_output();
