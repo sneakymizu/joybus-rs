@@ -82,10 +82,10 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
     let [high_addr, low_addr] = (data.as_ptr() as u16).to_be_bytes(); // 3c
     let mut errors:u8;
     let mut bytes_read_or_additional_error_information=0u8;
-    let read_bit_position=1u8;
     unsafe{
         asm!{
             "ld {current_byte} z",
+            "ldi {read_bit_position} 1",
             // wait for low
             "2:",
                 "sbic {pin} {pin_number}",
@@ -95,12 +95,14 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
             "out {timer_counter_register} 0", // 21c worst case -> 11 cycles remaining until high is expected
             "cpi {read_bit_position} 0",
             "brne 0f",
+            "sbi 0xb 7",
             "st z+ {current_byte}",
             "inc {bytes_read}",
             "ldi {read_bit_position} 1",
-            "cpi {bytes_read} 5", // ensure we're not reading beyond our memory
+            "cpi {bytes_read} 4", // ensure we're not reading beyond our memory
             "breq 99f",
             "ld {current_byte} z", // else load byte
+            "cbi 0xb 7",
             // end of the stuff that might be tricky to do
             // in the last high microsecond of a logic 0
 
@@ -109,21 +111,16 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
                 "sbis {pin} {pin_number}",
                 "rjmp 0b",
             // check time sample
-            "in {low_time_register} {timer_counter_register}", // 21c worst case -> 11 cycles remaining
-            "cpi {low_time_register} {low}",
-            "brge 0f",
-            "cpi {low_time_register} {high}",
+            "in {low_time_register} {timer_counter_register}", // 5c into microsecond worst case -> 11 cycles remaining
+            "cpi {low_time_register} {max_for_high}",
             "brlo 1f",
+            "cpi {low_time_register} {min_for_low}",
+            "brge 0f", // do nothing, just increment reading bit position
             "rjmp 100f",
             // store time sample
             "1:",
-                "lsl {current_byte}",
-                "ori {current_byte} 1",
-                 // as 1 has a broader window for checking next low, the jump should be done here not for reading 0
-                "rjmp 3f",
+                "or {current_byte} {read_bit_position}",
             "0:",
-                "lsl {current_byte}",
-            "3:",
                 "lsl {read_bit_position}",
                 "rjmp 2b",
 
@@ -134,7 +131,7 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
             "100:",
                 "ldi {errors} 0",
             "101:",
-            read_bit_position=in(reg) read_bit_position,
+            read_bit_position=out(reg) _,
             bytes_read=inout(reg) bytes_read_or_additional_error_information,
             errors=out(reg) errors,
             low_time_register=out(reg) _,
@@ -144,8 +141,8 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
             timer_counter_register=const TIMER,
             in("ZL") low_addr,
             in("ZH") high_addr,
-            low=const MINIMUM_LOW_CYCLES_FOR_0,
-            high=const MAXIMUM_LOW_CYCLES_FOR_1,
+            min_for_low=const MINIMUM_LOW_CYCLES_FOR_0,
+            max_for_high=const MAXIMUM_LOW_CYCLES_FOR_1,
         }
     }
     match errors{
