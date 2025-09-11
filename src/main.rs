@@ -51,9 +51,9 @@ fn main() -> ! {
     let mut data = [0u8;DATA_LEN];
     loop {
         _reader_pin = Either::Left(_reader_pin.right().into_output_high());
-        send_byte::<0x0b, 0x06>(joybus_types::commands::POLL_SIGNAL);
+        unsafe {send_byte::<0x0b, 0x06>(joybus_types::commands::POLL_SIGNAL)};
         _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
-        let _ = match read_bytes::<0x9, 0x6, 0x26, DATA_LEN>(&mut data){
+        let _ = match unsafe{read_bytes::<0x9, 0x6, 0x26, DATA_LEN>(&mut data)}{
             Ok(b) => uwriteln!(serial, "(Stop-bit) Bytes are {:?} {:?}\r", b, data),
             Err(ReadError::OutOfMemory(len)) => uwriteln!(serial, "(No Stopbit) Bytes are {:?}: {:?}\r", len, data),
             Err(e) => {
