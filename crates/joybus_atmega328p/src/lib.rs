@@ -81,6 +81,7 @@ pub enum ReadError{
 const MINIMUM_LOW_CYCLES_FOR_0:u8=33;
  // 16+5 cycles, compares against lower
 const MAXIMUM_LOW_CYCLES_FOR_1:u8=22;
+const INIT_READ_BIT_POSITION:u8=0b10000000; // reading bits left to right
 
 #[inline]
 pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8, const DATA_LEN: usize>(data:&mut [u8])->Result<u8, ReadError>{
@@ -90,7 +91,7 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8, const DA
     unsafe{
         asm!{
             "ld {current_byte} z",
-            "ldi {read_bit_position} 0b10000000", // reading bits left to right
+            "ldi {read_bit_position} {init_read_bit_position}", // reading bits left to right
             "ldi {timer_reset_value} 0",
             // wait for low
             "2:",
@@ -103,7 +104,7 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8, const DA
             "brne 0f",
             "st z+ {current_byte}",
             "inc {bytes_read}",
-            "ldi {read_bit_position} 0b10000000",
+            "ldi {read_bit_position} {init_read_bit_position}",
             "cpi {bytes_read} {data_len}", // ensure we're not reading beyond our memory
             "breq 99f",
             "ld {current_byte} z", // else load byte
@@ -150,6 +151,7 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8, const DA
             pin_number=const PIN_NUMBER,
             timer_counter_register=const TIMER,
             data_len=const DATA_LEN,
+            init_read_bit_position=const INIT_READ_BIT_POSITION,
             in("ZL") low_addr,
             in("ZH") high_addr,
             min_for_low=const MINIMUM_LOW_CYCLES_FOR_0,
