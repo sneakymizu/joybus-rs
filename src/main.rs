@@ -48,8 +48,8 @@ fn main() -> ! {
     arduino_hal::delay_ms(3000);
     _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
     const DATA_LEN:usize=4;
+    let mut data = [0u8;DATA_LEN];
     loop {
-        let mut data = [0u8;DATA_LEN];
         _reader_pin = Either::Left(_reader_pin.right().into_output_high());
         send_byte::<0x0b, 0x06>(joybus_types::commands::POLL_SIGNAL);
         _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
@@ -69,6 +69,7 @@ fn main() -> ! {
         let _ = uwriteln!(serial, "C down {}\r", if state.c_down(){"pressed"}else{"released"});
         let _ = uwriteln!(serial, "C left {}\r", if state.c_left(){"pressed"}else{"released"});
         let _ = uwriteln!(serial, "C right {}\r", if state.c_right(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Reset is {}\r", if state.reset(){"pressed"}else{"released"});
         let _ = uwriteln!(serial, "Start is {}\r", if state.start_button(){"pressed"}else{"released"});
         let _ = uwriteln!(serial, "Right trigger is {}\r", if state.right_trigger(){"pressed"}else{"released"});
         let _ = uwriteln!(serial, "Left trigger {}\r", if state.left_trigger(){"pressed"}else{"released"});
