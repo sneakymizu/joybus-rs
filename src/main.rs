@@ -3,14 +3,11 @@
 #![feature(asm_experimental_arch)]
 #![feature(asm_const)]
 
-use core::arch::asm;
-
 use panic_halt as _;
 use ufmt::uwriteln;
 
-use crate::atmega328p::{read_bytes, send_byte, ReadError};
+use joybus_atmega328p::{read_bytes, send_byte, ReadError};
 
-mod atmega328p;
 mod n64;
 
 enum Either<L,R>{

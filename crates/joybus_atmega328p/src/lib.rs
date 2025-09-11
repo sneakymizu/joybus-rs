@@ -1,4 +1,7 @@
-#[cfg(atmega328p)]
+#![no_std]
+#![no_main]
+#![feature(asm_experimental_arch)]
+#![feature(asm_const)]
 
 use core::arch::asm;
 use ufmt::derive::uDebug;
