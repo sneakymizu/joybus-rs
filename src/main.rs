@@ -61,6 +61,24 @@ fn main() -> ! {
                 continue;
             },
         };
-        arduino_hal::delay_ms(100);
+        let state: N64ControllerState = data.into();
+        let _ = uwriteln!(serial, "A is {}\r", if state.a_button(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "B is {}\r", if state.b_button(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Z is {}\r", if state.z_button(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "C up is {}\r", if state.c_up(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "C down {}\r", if state.c_down(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "C left {}\r", if state.c_left(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "C right {}\r", if state.c_right(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Start is {}\r", if state.start_button(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Right trigger is {}\r", if state.right_trigger(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Left trigger {}\r", if state.left_trigger(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Dpad up is {}\r", if state.dpad_up(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Dpad down is {}\r", if state.dpad_down(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Dpad left is {}\r", if state.dpad_left(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Dpad right is {}\r", if state.dpad_right(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "X is {}\r", state.x_axis());
+        let _ = uwriteln!(serial, "Y is {}\r", state.y_axis());
+
+        arduino_hal::delay_ms(500);
     }
 }
