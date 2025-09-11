@@ -83,14 +83,14 @@ const MINIMUM_LOW_CYCLES_FOR_0:u8=33;
 const MAXIMUM_LOW_CYCLES_FOR_1:u8=22;
 
 #[inline]
-pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mut [u8;4])->Result<u8, ReadError>{
+pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8, const DATA_LEN: usize>(data:&mut [u8])->Result<u8, ReadError>{
     let [high_addr, low_addr] = (data.as_ptr() as u16).to_be_bytes(); // 3c
     let mut errors:u8;
     let mut bytes_read_or_additional_error_information=0u8;
     unsafe{
         asm!{
             "ld {current_byte} z",
-            "ldi {read_bit_position} 1",
+            "ldi {read_bit_position} 0b10000000",
             "ldi {timer_reset_value} 0",
             // wait for low
             "2:",
@@ -103,8 +103,8 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
             "brne 0f",
             "st z+ {current_byte}",
             "inc {bytes_read}",
-            "ldi {read_bit_position} 1",
-            "cpi {bytes_read} 4", // ensure we're not reading beyond our memory
+            "ldi {read_bit_position} 0b10000000",
+            "cpi {bytes_read} {data_len}", // ensure we're not reading beyond our memory
             "breq 99f",
             "ld {current_byte} z", // else load byte
             // end of the stuff that might be tricky to do
@@ -125,7 +125,7 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
             "1:",
                 "or {current_byte} {read_bit_position}",
             "0:",
-                "lsl {read_bit_position}",
+                "lsr {read_bit_position}",
                 "rjmp 2b",
 
             // errors and exit
@@ -144,6 +144,7 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8>(data:&mu
             pin=const PIN,
             pin_number=const PIN_NUMBER,
             timer_counter_register=const TIMER,
+            data_len=const DATA_LEN,
             in("ZL") low_addr,
             in("ZH") high_addr,
             min_for_low=const MINIMUM_LOW_CYCLES_FOR_0,

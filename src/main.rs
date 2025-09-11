@@ -8,7 +8,7 @@ use ufmt::uwriteln;
 
 use joybus_atmega328p::{read_bytes, send_byte, ReadError};
 
-mod n64;
+use joybus_types::N64ControllerState;
 
 enum Either<L,R>{
     Left(L),
@@ -47,17 +47,20 @@ fn main() -> ! {
     led_pin.set_low();
     arduino_hal::delay_ms(3000);
     _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
+    const DATA_LEN:usize=4;
     loop {
-        let mut data = [0u8;4];
+        let mut data = [0u8;DATA_LEN];
         _reader_pin = Either::Left(_reader_pin.right().into_output_high());
-        send_byte::<0x0b, 0x06>(n64::commands::POLL_SIGNAL);
-        let pin = _reader_pin.left().into_pull_up_input();
-        let _ = match read_bytes::<0x9, 0x6, 0x26>(&mut data){
+        send_byte::<0x0b, 0x06>(joybus_types::commands::POLL_SIGNAL);
+        _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
+        let _ = match read_bytes::<0x9, 0x6, 0x26, DATA_LEN>(&mut data){
             Ok(b) => uwriteln!(serial, "(Stop-bit) Bytes are {:?} {:?}\r", b, data),
             Err(ReadError::OutOfMemory(len)) => uwriteln!(serial, "(No Stopbit) Bytes are {:?}: {:?}\r", len, data),
-            Err(e) => uwriteln!(serial, "Got error {:?}\r", e),
+            Err(e) => {
+                let _ = uwriteln!(serial, "Got error {:?}\r", e);
+                continue;
+            },
         };
-        _reader_pin = Either::Right(pin);
         arduino_hal::delay_ms(100);
     }
 }
