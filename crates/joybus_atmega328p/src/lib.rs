@@ -116,15 +116,20 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8, const DA
                 "rjmp 0b",
             // check time sample
             "in {low_time_register} {timer_counter_register}", // 5c into microsecond worst case -> 11 cycles remaining
+            "cpi {low_time_register} {min_for_low}",
+            "brge 0f",
             "cpi {low_time_register} {max_for_high}",
             "brlo 1f",
-            "cpi {low_time_register} {min_for_low}",
-            "brge 0f", // do nothing, just increment reading bit position
             "rjmp 100f",  // not high, not low, prolly controller stop bit...
             // store time sample
+            "0:",
+                "com {read_bit_position}",
+                "and {current_byte} {read_bit_position}", // unset bit at read-bit-position
+                "com {read_bit_position}",
+                "lsr {read_bit_position}",
+                "rjmp 2b",
             "1:",
                 "or {current_byte} {read_bit_position}",
-            "0:",
                 "lsr {read_bit_position}",
                 "rjmp 2b",
 
