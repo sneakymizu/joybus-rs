@@ -90,7 +90,7 @@ pub fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8, const DA
     unsafe{
         asm!{
             "ld {current_byte} z",
-            "ldi {read_bit_position} 0b10000000",
+            "ldi {read_bit_position} 0b10000000", // reading bits left to right
             "ldi {timer_reset_value} 0",
             // wait for low
             "2:",
