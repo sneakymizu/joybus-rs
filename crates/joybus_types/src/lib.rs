@@ -1,6 +1,5 @@
 #![no_std]
 
-
 pub struct N64ControllerState([u8;4]);
 impl From<[u8;4]> for N64ControllerState{
     fn from(value: [u8;4]) -> Self {
@@ -58,11 +57,11 @@ impl N64ControllerState{
     pub fn c_right(&self)->bool{
         (self.0[1]&1u8)!=0
     }
-    pub fn x_axis(&self)->i16{
-        self.0[2] as i16
+    pub fn x_axis(&self)->i8{
+        self.0[2] as i8
     }
-    pub fn y_axis(&self)->i16{
-        self.0[3] as i16
+    pub fn y_axis(&self)->i8{
+        self.0[3] as i8
     }
 }
 
