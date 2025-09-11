@@ -130,6 +130,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "joybus_types"
+version = "0.1.0"
+
+[[package]]
 name = "nb"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -182,6 +186,7 @@ dependencies = [
  "avr-device",
  "embedded-hal 0.2.7",
  "joybus_atmega328p",
+ "joybus_types",
  "panic-halt",
  "ufmt",
 ]

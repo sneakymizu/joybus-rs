@@ -19,6 +19,7 @@ embedded-hal = "0.2"
 arduino-hal = { git = "https://github.com/Rahix/avr-hal.git", rev="ravedude-0.1.8", features = ["arduino-nano"]}
 avr-device = "0.5"
 joybus_atmega328p = {path="crates/joybus_atmega328p"}
+joybus_types = {path="crates/joybus_types"}
 
 [profile.dev]
 panic = "abort"
