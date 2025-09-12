@@ -9,63 +9,81 @@ use ufmt::derive::uDebug;
 // assumes the given port is configured as output
 // designed for atmega running with 16MHz clock
 // 1µs is 16 clock cylces, 3µs is 48
-const BIT_COUNTER_INIT:u8=9u8; // 8 bits but we'll branch on zero, thus would skip the last bit.
+const BIT_COUNTER_INIT:u8=128u8;
 #[inline]
 pub unsafe fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8, const BYTES:usize>(bytes: [u8;BYTES]) {
-    let bit_counter = BYTES*8+1;
+    let [high_addr, low_addr] = (bytes.as_ptr() as u16).to_be_bytes(); // 3c
     asm!{
-        "sbi {port}, {pin}", // PORT Pin "PIN_NUMBER"
-        "0:",
-            "dec {bit_counter}", // 1c
-            "breq 2f", // 1c for non branching (sending 1 or 0) else done writing
-            "lsl {input}", // 1c
-            "brcs 11f", // 1c for send 0, 2c for send 1
-            "nop", //1c add nop here so one and zero cycle cout are equivalent
-        // start sending logic zero here (already high for 5c)
+        "ldi {byte_counter} {bytes_to_send}",
+        "ldi {bit_counter} {bit_counter_init}",
+        "ld {input} z+",
+        "rjmp 5f",
+        "2:",
+            "lsr {bit_counter}", // 1c        
+        "5:",
             "cbi {port}, {pin}", // 2c
-            "ldi {inner_loop_counter}, 15", // 1c
+            "breq 3f", // 1c/2c
+            "nop",
+            "nop",
+            "nop",
+            "nop",
+            "rjmp 4f",
+        "3:", // check bytes and bits to send
+            "ld {input} z+", // 2c
+            "ldi {bit_counter} {bit_counter_init}", //1c
+            "dec {byte_counter}", // 1c
+            "breq 100f", // 1c/2c
+        "4:", // 8c since low | check if 0 or 1 is sent
+            "mov {tmp} {input}", // 1c
+            "and {tmp} {bit_counter}", // 1c
+            "breq 0f", // 2c for send 0, 1c for send 1
+        "1:", // enter here with 11c (send 1)
+            // start waiting rest of high for logic one here
+            "nop", // 1c
+            "nop", // 1c
+            "nop", // 1c // 14c since low
+            "sbi {port} {pin}", // 2c high on cycle 16
+            // now keep it high for 4c less than 3µs -> 44 cycles
+            "ldi {tmp} 14", // 1c
             "1:",
-                "dec {inner_loop_counter}", // 1c
+                "dec {tmp}", // 1c
                 "brne 1b",  // 2c on branch else 1c
-                // exit with 45c low
+                // exit with 42c high
+            "nop",
+            "rjmp 2b", // rjmp back with 45 cycles (bit shift after each bit) so low on cycle 48 since setting high -> logic one
+        "0:", // enter here with 12c (send 0)
+            // keep low for additional 2µ (->32 cycles) + 2 cycles, set high and jump back on cycle 12 of high signal
             "nop", // 1c
-            "sbi {port}, {pin}", // 2c # high on cycle 48
-            "ldi {inner_loop_counter}, 2", // 1c
+            "ldi {tmp}, 11", // 1c
             "1:",
-                "dec {inner_loop_counter}", // 1c
-                "brne 1b", // 2c on branch else 1c
-            "nop", // 1c
-            // exit with 8 cycles
-            "breq 0b", // 2c (otherwise brne would have hit), exit with 9 cycles high here
-        "11:",  // start sending logic one here (already high for 5c)
-            "cbi {port}, {pin}", // 2c
-            "ldi {inner_loop_counter}, 4", // 1c
-            "1:",
-                "dec {inner_loop_counter}", // 1c
+                "dec {tmp}", // 1c
                 "brne 1b", // 1c/2c
-            "nop", // 1c
-            "nop", // 1c
-            "sbi {port}, {pin}", // 2c - high on cycle 16
-            "ldi {inner_loop_counter}, 13", // 1c
+                // exit with 46 cycles
+            "sbi {port}, {pin}", // 2c - high on cycle 48 since low
+            "ldi {tmp}, 3", // 1c
             "1:",
-                "dec {inner_loop_counter}", // 1c
+                "dec {tmp}", // 1c
                 "brne 1b", // 1c
-            "breq 0b", // 2c
-        "2:", // send stop bit (starts with 12c/44c high)
+                // exit with 9 cycles high
+            "nop",
+            "nop",
+            "rjmp 2b", // 2c // jump back with 13 (bit shift after each bit) cycles high
+        "100:", // send stop bit (starts with 9c low)
             "nop", // 1c
             "nop", // 1c
-            "cbi {port}, {pin}", // 2c
-            "ldi {inner_loop_counter}, 4", // 1c
-            "1:",
-                "dec {inner_loop_counter}", // 1c
-                "brne 1b", // 1c/2c
+            "nop", // 1c
             "nop", // 1c
             "nop", // 1c
             "sbi {port}, {pin}", // 2c - high on cycle 16
-            // no need to count here anymore
-        bit_counter=in(reg) bit_counter,
-        input=in(reg) byte,
-        inner_loop_counter=out(reg) _,
+            // no need to count here anymore, let the other side handle the response
+        bit_counter=out(reg) _,
+        byte_counter=out(reg) _,
+        input=out(reg) _,
+        tmp=out(reg) _,
+        in("ZL") low_addr,
+        in("ZH") high_addr,
+        bytes_to_send=const BYTES,
+        bit_counter_init=const BIT_COUNTER_INIT,
         port=const PORT,
         pin=const PIN_NUMBER, // should be the same for port, ddr and pmsk
     }
