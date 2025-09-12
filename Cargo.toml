@@ -3,6 +3,9 @@ name = "rust64"
 version = "0.1.0"
 edition = "2021"
 
+[workspace]
+members = ["crates/*"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
 name = "rust64"
@@ -15,6 +18,8 @@ ufmt = "0.2.0"
 embedded-hal = "0.2"
 arduino-hal = { git = "https://github.com/Rahix/avr-hal.git", rev="ravedude-0.1.8", features = ["arduino-nano"]}
 avr-device = "0.5"
+joybus_atmega328p = {path="crates/joybus_atmega328p"}
+joybus_types = {path="crates/joybus_types"}
 
 [profile.dev]
 panic = "abort"

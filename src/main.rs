@@ -3,15 +3,12 @@
 #![feature(asm_experimental_arch)]
 #![feature(asm_const)]
 
-use core::arch::asm;
-
 use panic_halt as _;
 use ufmt::uwriteln;
 
-use crate::atmega328p::{read_bytes, send_byte, ReadError};
+use joybus_atmega328p::{read_bytes, send_byte, ReadError};
 
-mod atmega328p;
-mod n64;
+use joybus_types::N64ControllerState;
 
 enum Either<L,R>{
     Left(L),
@@ -50,17 +47,39 @@ fn main() -> ! {
     led_pin.set_low();
     arduino_hal::delay_ms(3000);
     _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
+    const DATA_LEN:usize=4;
+    let mut data = [0u8;DATA_LEN];
     loop {
-        let mut data = [0u8;4];
         _reader_pin = Either::Left(_reader_pin.right().into_output_high());
-        send_byte::<0x0b, 0x06>(n64::commands::POLL_SIGNAL);
-        let pin = _reader_pin.left().into_pull_up_input();
-        let _ = match read_bytes::<0x9, 0x6, 0x26>(&mut data){
+        unsafe {send_byte::<0x0b, 0x06>(joybus_types::commands::POLL_SIGNAL)};
+        _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
+        let _ = match unsafe{read_bytes::<0x9, 0x6, 0x26, DATA_LEN>(&mut data)}{
             Ok(b) => uwriteln!(serial, "(Stop-bit) Bytes are {:?} {:?}\r", b, data),
             Err(ReadError::OutOfMemory(len)) => uwriteln!(serial, "(No Stopbit) Bytes are {:?}: {:?}\r", len, data),
-            Err(e) => uwriteln!(serial, "Got error {:?}\r", e),
+            Err(e) => {
+                let _ = uwriteln!(serial, "Got error {:?}\r", e);
+                continue;
+            },
         };
-        _reader_pin = Either::Right(pin);
-        arduino_hal::delay_ms(100);
+        let state: N64ControllerState = data.into();
+        let _ = uwriteln!(serial, "A is {}\r", if state.a_button(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "B is {}\r", if state.b_button(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Z is {}\r", if state.z_button(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "C up is {}\r", if state.c_up(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "C down {}\r", if state.c_down(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "C left {}\r", if state.c_left(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "C right {}\r", if state.c_right(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Reset is {}\r", if state.reset(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Start is {}\r", if state.start_button(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Right trigger is {}\r", if state.right_trigger(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Left trigger {}\r", if state.left_trigger(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Dpad up is {}\r", if state.dpad_up(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Dpad down is {}\r", if state.dpad_down(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Dpad left is {}\r", if state.dpad_left(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "Dpad right is {}\r", if state.dpad_right(){"pressed"}else{"released"});
+        let _ = uwriteln!(serial, "X is {}\r", state.x_axis());
+        let _ = uwriteln!(serial, "Y is {}\r", state.y_axis());
+
+        arduino_hal::delay_ms(500);
     }
 }
