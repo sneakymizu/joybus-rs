@@ -11,9 +11,9 @@ use ufmt::derive::uDebug;
 // 1µs is 16 clock cylces, 3µs is 48
 const BIT_COUNTER_INIT:u8=9u8; // 8 bits but we'll branch on zero, thus would skip the last bit.
 #[inline]
-pub unsafe fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8>(byte: u8) {
+pub unsafe fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8, const BYTES:usize>(bytes: [u8;BYTES]) {
+    let bit_counter = BYTES*8+1;
     asm!{
-        "ldi {bit_counter} {bit_counter_init}",
         "sbi {port}, {pin}", // PORT Pin "PIN_NUMBER"
         "0:",
             "dec {bit_counter}", // 1c
@@ -63,10 +63,9 @@ pub unsafe fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8>(byte: u8) {
             "nop", // 1c
             "sbi {port}, {pin}", // 2c - high on cycle 16
             // no need to count here anymore
-        bit_counter=out(reg) _,
+        bit_counter=in(reg) bit_counter,
         input=in(reg) byte,
         inner_loop_counter=out(reg) _,
-        bit_counter_init=const BIT_COUNTER_INIT,
         port=const PORT,
         pin=const PIN_NUMBER, // should be the same for port, ddr and pmsk
     }
