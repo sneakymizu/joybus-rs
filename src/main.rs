@@ -5,6 +5,7 @@
 
 use panic_halt as _;
 use ufmt::uwriteln;
+use core::arch::asm;
 
 use joybus_atmega328p::{read_bytes, send_byte, ReadError};
 
@@ -35,6 +36,7 @@ fn main() -> ! {
     // normal operating timer
     timer.tccr0a.reset();
     timer.tccr0b.write(|w|w.cs0().direct());  // no prescale, normal timer operation
+    timer.ocr0a.write(|w|w.bits(64));  // setup timeout on 4 µs
     let pins = arduino_hal::pins!(dp);
     // Digital pin 13 is also connected to an onboard LED marked "L"
     let mut led_pin = pins.d13.into_output();
@@ -50,7 +52,7 @@ fn main() -> ! {
     const DATA_LEN:usize=4;
     let mut data = [0u8;DATA_LEN];
     loop {
-        _reader_pin = Either::Left(_reader_pin.right().into_output_high());
+        /*_reader_pin = Either::Left(_reader_pin.right().into_output_high());
         unsafe {send_byte::<0x0b, 0x06, 1>([joybus_types::commands::POLL_SIGNAL])};
         _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
         let _ = match unsafe{read_bytes::<0x9, 0x6, 0x26, DATA_LEN>(&mut data)}{
@@ -78,7 +80,19 @@ fn main() -> ! {
         let _ = uwriteln!(serial, "Dpad left is {}\r", if state.dpad_left(){"pressed"}else{"released"});
         let _ = uwriteln!(serial, "Dpad right is {}\r", if state.dpad_right(){"pressed"}else{"released"});
         let _ = uwriteln!(serial, "X is {}\r", state.x_axis());
-        let _ = uwriteln!(serial, "Y is {}\r", state.y_axis());
+        let _ = uwriteln!(serial, "Y is {}\r", state.y_axis());*/
+        unsafe{
+            asm!{
+                "ldi {tmp} 0",
+                "sbi 0x15 1",
+                "out 0x26 {tmp}",
+                "1:",
+                    "sbis 0x15 1",
+                    "rjmp 1b",
+                tmp=out(reg) _
+            }
+        }
+        let _ = uwriteln!(serial, "Counter is at {}\r", timer.tcnt0.read().bits());
 
         arduino_hal::delay_ms(500);
     }
