@@ -91,6 +91,7 @@ pub unsafe fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8, const BYTES:usize>(b
 #[derive(uDebug)]
 pub enum ReadError{
     OutOfMemory(u8),
+    Timeout,
     UnknownError(u8),
 }
 
@@ -101,7 +102,7 @@ const MAXIMUM_LOW_CYCLES_FOR_1:u8=22;
 const INIT_READ_BIT_POSITION:u8=0b10000000; // reading bits left to right
 
 #[inline]
-pub unsafe fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8, const DATA_LEN: usize>(data:&mut [u8])->Result<u8, ReadError>{
+pub unsafe fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER_VALUE_REGISTER: u8, const TIMER_MATCH_REGISTER: u8, const TIMER_MATCH_NUMBER: u8, const DATA_LEN: usize>(data:&mut [u8])->Result<u8, ReadError>{
     let [high_addr, low_addr] = (data.as_ptr() as u16).to_be_bytes(); // 3c
     let mut errors:u8;
     let mut bytes_read_or_additional_error_information=0u8;
@@ -109,8 +110,11 @@ pub unsafe fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8, c
         "ld {current_byte} z",
         "ldi {read_bit_position} {init_read_bit_position}", // reading bits left to right
         "ldi {timer_reset_value} 0",
+        "sbi {timer_match_register} {timer_match_position}",
         // wait for low
         "2:",
+            "sbic {timer_match_register} {timer_match_position}",
+            "rjmp 98f",
             "sbic {pin} {pin_number}",
             "rjmp 2b",
 
@@ -151,7 +155,10 @@ pub unsafe fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8, c
             "rjmp 2b",
 
         // errors and exit
-        "99:",
+        "98:", // Timeout while wait for low signal
+            "ldi {errors} 98",
+            "rjmp 101f",
+        "99:", // end of memory error
             "ldi {errors} 99",
             "rjmp 101f",
         "100:",
@@ -165,7 +172,9 @@ pub unsafe fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8, c
         current_byte=out(reg) _,
         pin=const PIN,
         pin_number=const PIN_NUMBER,
-        timer_counter_register=const TIMER,
+        timer_counter_register=const TIMER_VALUE_REGISTER,
+        timer_match_register=const TIMER_MATCH_REGISTER,
+        timer_match_position=const TIMER_MATCH_NUMBER,
         data_len=const DATA_LEN,
         init_read_bit_position=const INIT_READ_BIT_POSITION,
         in("ZL") low_addr,
@@ -176,6 +185,7 @@ pub unsafe fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER: u8, c
     match errors{
         0=>Ok(bytes_read_or_additional_error_information),
         99=>Err(ReadError::OutOfMemory(bytes_read_or_additional_error_information)),
+        98=>Err(ReadError::Timeout),
         _=>Err(ReadError::UnknownError(errors)),
     }
 }
