@@ -86,9 +86,13 @@ fn main() -> ! {
                 "ldi {tmp} 0",
                 "sbi 0x15 1",
                 "out 0x26 {tmp}",
+                "clt",
                 "1:",
-                    "sbis 0x15 1",
+                    "in {tmp} 0x15",
+                    "bst {tmp} 1",
+                    "brts 2f",
                     "rjmp 1b",
+                "2:",
                 tmp=out(reg) _
             }
         }
