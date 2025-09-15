@@ -106,6 +106,23 @@ fn main() -> ! {
         let _ = uwriteln!(serial, "X is {}\r", state.x_axis());
         let _ = uwriteln!(serial, "Y is {}\r", state.y_axis());
 
+        if state.a_button(){
+            generator.set_freq(294);
+        }
+        else if state.c_down(){
+            generator.set_freq(349);
+        }
+        else if state.c_right(){
+            generator.set_freq(440);
+        }
+        else if state.c_left(){
+            generator.set_freq(494);
+        }
+        else if state.c_up(){
+            generator.set_freq(587);
+        }else{
+            generator.set_freq(0);
+        }
         arduino_hal::delay_ms(500);
     }
 }
