@@ -113,6 +113,7 @@ pub unsafe fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER_VALUE_
         "ld {current_byte} z",
         "ldi {read_bit_position} {init_read_bit_position}", // reading bits left to right
         "ldi {timer_reset_value} 0",
+        "out {timer_counter_register} {timer_reset_value}", // 2c | ensure timer is reset
         "sbi {timer_match_register} {timer_match_position}", // 2c
         // wait for low
         "2:",
