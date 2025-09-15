@@ -3,6 +3,7 @@
 #![feature(asm_experimental_arch)]
 #![feature(asm_const)]
 
+use arduino_hal::pac::TC1;
 use panic_halt as _;
 use ufmt::uwriteln;
 
@@ -28,6 +29,22 @@ impl<L,R> Either<L,R>{
         }
     }
 }
+struct FrequencyGenerator<const PRESCALER: u16>{
+    pwm_driver: TC1,
+}
+impl<const PRESCALER:u16> FrequencyGenerator<PRESCALER>{
+    const FREQUENCY_CONVERSION_FACTOR:u16=(16000000/(2*PRESCALER as u32)) as u16;
+
+    fn set_freq(&mut self, freq:u16){
+        let top = if freq == 0{
+            0
+        }else{
+            Self::FREQUENCY_CONVERSION_FACTOR*freq
+        };
+        self.pwm_driver.ocr1a.write(|w|w.bits(top));
+    }
+}
+
 #[arduino_hal::entry]
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
@@ -35,6 +52,13 @@ fn main() -> ! {
     // normal operating timer
     timer.tccr0a.reset();
     timer.tccr0b.write(|w|w.cs0().direct());  // no prescale, normal timer operation
+    let pwm_sound_driver = dp.TC1;
+    pwm_sound_driver.tccr1a.write(|w|w.com1a().match_toggle().wgm1().bits(1));
+    pwm_sound_driver.tccr1b.write(|w|w.wgm1().bits(2).cs1().prescale_1024());
+    let mut generator = FrequencyGenerator::<1024>{
+        pwm_driver: pwm_sound_driver,
+    };
+
     let pins = arduino_hal::pins!(dp);
     // Digital pin 13 is also connected to an onboard LED marked "L"
     let mut led_pin = pins.d13.into_output();
@@ -42,6 +66,8 @@ fn main() -> ! {
 
     let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut _reader_pin = Either::Left(pins.d6.into_output_high().downgrade());
+    generator.set_freq(0);
+    pins.d9.into_output();  // oc1a is pb1, which is d9 on arduino nano - setting high for pwm output
 
     //uwriteln!(serial, "Lets go\r").unwrap();
     led_pin.set_low();
