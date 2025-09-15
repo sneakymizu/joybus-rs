@@ -18,6 +18,7 @@ pub unsafe fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8, const BYTES:usize>(b
         "ldi {bit_counter} {bit_counter_init}",
         "ld {input} z+",
         "clz",
+        // this setup should take too long to properly align, but a button detection functiones well
         "rjmp 5f",
         "2:",
             "lsr {bit_counter}", // 1c        
