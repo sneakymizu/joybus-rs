@@ -91,12 +91,14 @@ pub unsafe fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8, const BYTES:usize>(b
 #[derive(uDebug)]
 pub enum ReadError{
     OutOfMemory(u8),
-    Timeout,
+    Timeout(u8),
     UnknownError(u8),
 }
 
- // each loop for pin check might exit with 4~5 cycles wasted & third party controllers aren't too specific about timing so this expects more than "stopbit"-low
-const MINIMUM_LOW_CYCLES_FOR_0:u8=33;
+// each loop for pin check might exit with 4~5 cycles wasted & third party controllers aren't too specific about timing so this expects more than "stopbit"-low
+
+// seemingly perfect stop bit timing alignment with loading timer value is 33 cycles. So taking the 32 low cycles for stop bit + 4~5 misalignment cycles should be greater or equal to ~37
+const MINIMUM_LOW_CYCLES_FOR_0:u8=37;
  // 16+5 cycles, compares against lower
 const MAXIMUM_LOW_CYCLES_FOR_1:u8=22;
 const INIT_READ_BIT_POSITION:u8=0b10000000; // reading bits left to right
@@ -110,7 +112,7 @@ pub unsafe fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER_VALUE_
         "ld {current_byte} z",
         "ldi {read_bit_position} {init_read_bit_position}", // reading bits left to right
         "ldi {timer_reset_value} 0",
-        "sbi {timer_match_register} {timer_match_position}",
+        "sbi {timer_match_register} {timer_match_position}", // 2c
         // wait for low
         "2:",
             "sbic {timer_match_register} {timer_match_position}",
@@ -118,16 +120,18 @@ pub unsafe fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER_VALUE_
             "sbic {pin} {pin_number}",
             "rjmp 2b",
 
-        // there should be at least 13 cycles here to do some memory management
-        "out {timer_counter_register} {timer_reset_value}", // 21c worst case -> 11 cycles remaining until high is expected
-        "cpi {read_bit_position} 0",
-        "brne 0f",
-        "st z+ {current_byte}",
-        "inc {bytes_read}",
-        "ldi {read_bit_position} {init_read_bit_position}",
-        "cpi {bytes_read} {data_len}", // ensure we're not reading beyond our memory
-        "breq 99f",
-        "ld {current_byte} z", // else load byte
+        // there should be at least 11 cycles here to do some memory management
+        // misalignment possible as this does not include anything before asm-start
+        "out {timer_counter_register} {timer_reset_value}", // 2c | 7c into low worst case -> 9 cycles after this remaining until high is expected
+        "cpi {read_bit_position} 0", // 1c
+        "brne 0f", // 1c/2c | skip (2c) for still on same byte
+        "st z+ {current_byte}", // 2c
+        "inc {bytes_read}", // 1c
+        "ldi {read_bit_position} {init_read_bit_position}", // 1c
+        "cpi {bytes_read} {data_len}", // 1c | ensure we're not reading beyond our memory
+        "breq 99f", // 1c/2c | exit on out of memory
+        "ld {current_byte} z", // 2c | else load byte
+        // about 8 cycles since timer check.
         // end of the stuff that might be tricky to do
         // in the last high microsecond of a logic 0
 
@@ -157,6 +161,7 @@ pub unsafe fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER_VALUE_
         // errors and exit
         "98:", // Timeout while wait for low signal
             "ldi {errors} 98",
+            "mov {bytes_read} {low_time_register}",
             "rjmp 101f",
         "99:", // end of memory error
             "ldi {errors} 99",
@@ -185,7 +190,7 @@ pub unsafe fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER_VALUE_
     match errors{
         0=>Ok(bytes_read_or_additional_error_information),
         99=>Err(ReadError::OutOfMemory(bytes_read_or_additional_error_information)),
-        98=>Err(ReadError::Timeout),
+        98=>Err(ReadError::Timeout(bytes_read_or_additional_error_information)),
         _=>Err(ReadError::UnknownError(errors)),
     }
 }
