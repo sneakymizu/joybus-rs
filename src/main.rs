@@ -66,27 +66,44 @@ fn main() -> ! {
                 continue;
             },
         };
-        let state: N64ControllerState = data.into();
 
-        let top = if state.a_button(){
-            frequency_into_top(294)
-        }
-        else if state.c_down(){
-            frequency_into_top(349)
-        }
-        else if state.c_right(){
-            frequency_into_top(440)
-        }
-        else if state.c_left(){
-            frequency_into_top(494)
-        }
-        else if state.c_up(){
-            frequency_into_top(587)
+        let state: N64ControllerState = data.into();
+        let power: Option<i8> = if state.c_right(){ // A
+            Some(0)
+        } else if state.c_down(){ // F
+            Some(-4)
+        } else if state.a_button(){ // D
+            Some(-7)
+        } else if state.c_left(){ // B
+            Some(2)
+        } else if state.c_up(){ // D
+            Some(5)
         }else{
-            0
+            None
         };
+        if power.is_none(){
+            pwm_sound_driver.ocr1a.write(|w|w.bits(0));
+            continue;
+        }
+        let power = power.unwrap() as i8 - state.z_button() as i8 + state.y_axis().signum() * 2 + state.right_trigger() as i8;
+        let freq = calculate_equal_temperate_frequency::<440>(power);
+        let top = frequency_into_top(freq);
         pwm_sound_driver.ocr1a.write(|w|w.bits(top));
     }
+}
+
+const SEMITONE_FACTOR:f32 = 1.05946309436;
+fn calculate_equal_temperate_frequency<const BASE_FREQUENCY:u32>(power: i8)->u16{
+    let mut frequency=BASE_FREQUENCY as f32;
+    let fun = if power>=0{
+        <f32 as core::ops::Mul>::mul
+    }else{
+        <f32 as core::ops::Div>::div
+    };
+    for _ in 0..power.abs(){
+        frequency = fun(frequency, SEMITONE_FACTOR);
+    }
+    (frequency + 0.5) as u16
 }
 
 fn frequency_into_top(freq: u16)->u16{
