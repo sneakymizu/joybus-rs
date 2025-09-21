@@ -3,8 +3,10 @@
 #![feature(asm_experimental_arch)]
 #![feature(asm_const)]
 
+use core::ops::BitAnd;
+
 use panic_halt as _;
-use ufmt::uwriteln;
+use ufmt::{derive::uDebug, uwriteln};
 
 use joybus_atmega328p::{read_bytes, send_byte, ReadError};
 
@@ -58,6 +60,8 @@ fn main() -> ! {
     _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
     const DATA_LEN: usize = 4;
     let mut data = [0u8; DATA_LEN];
+    let mut currently_selected_note: Option<Note>;
+    let mut n64_controller_state: N64ControllerState;
     loop {
         _reader_pin = Either::Left(_reader_pin.right().into_output_high());
         unsafe { send_byte::<0x0b, 0x06, 1>([joybus_types::commands::POLL_SIGNAL]) };
@@ -73,36 +77,104 @@ fn main() -> ! {
             }
         };
 
-        let state: N64ControllerState = data.into();
-        let power: Option<i8> = if state.c_right() {
-            // A
-            Some(0)
-        } else if state.c_down() {
-            // F
-            Some(-4)
-        } else if state.a_button() {
-            // D
-            Some(-7)
-        } else if state.c_left() {
-            // B
-            Some(2)
-        } else if state.c_up() {
-            // D
-            Some(5)
-        } else {
-            None
+        n64_controller_state = data.into();
+        let note_selection: NoteSelection = (&n64_controller_state).into();
+        let _ = uwriteln!(serial, "notes: {:?}\r", note_selection);
+        let note: Result<Note, u8> = note_selection.try_into();
+        let _ = uwriteln!(serial, "note: {:?}\r", note);
+        currently_selected_note = match note {
+            Ok(note) => Some(note),
+            Err(0) => None,
+            Err(e) => {
+                let _ = uwriteln!(
+                    serial,
+                    "Simultaniously selected notes (counting {}), not switching.\r",
+                    e
+                );
+                continue;
+            }
         };
-        if power.is_none() {
-            pwm_sound_driver.ocr1a.write(|w| w.bits(0));
-            continue;
-        }
-        let power = power.unwrap() as i8
-            - state.z_button() as i8  // augments half step down
-            + state.y_axis().signum() * 2 // augments a whole step
-            + state.right_trigger() as i8; // augments half step up
-        let freq = calculate_equal_temperate_frequency::<440>(power);
-        let top = frequency_into_top(freq);
+
+        let top = match currently_selected_note {
+            Some(note) => {
+                let power = <Note as Into<NoteOffset>>::into(note).power
+                    - n64_controller_state.z_button() as i8  // augments half step down
+                    + n64_controller_state.y_axis().signum() * 2 // augments a whole step
+                    + n64_controller_state.right_trigger() as i8; // augments half step up
+                let freq = calculate_equal_temperate_frequency::<440>(power);
+                frequency_into_top(freq)
+            }
+            None => 0,
+        };
         pwm_sound_driver.ocr1a.write(|w| w.bits(top));
+    }
+}
+
+struct NoteOffset {
+    power: i8,
+}
+#[derive(uDebug, Clone, Copy)]
+enum Note {
+    D1,
+    F1,
+    A2,
+    B2,
+    D2,
+}
+#[derive(uDebug)]
+struct NoteSelection {
+    // bitmask D,B,A,F,D
+    selection: u8,
+}
+impl BitAnd<u8> for NoteSelection {
+    type Output = u8;
+
+    fn bitand(self, rhs: u8) -> Self::Output {
+        self.selection & rhs
+    }
+}
+impl From<&N64ControllerState> for NoteSelection {
+    fn from(value: &N64ControllerState) -> Self {
+        let note_selections = (value.c_right() as u8) << Note::A2 as u8
+            | (value.c_left() as u8) << Note::B2 as u8
+            | (value.a_button() as u8) << Note::D1 as u8
+            | (value.c_down() as u8) << Note::F1 as u8
+            | (value.c_up() as u8) << Note::D2 as u8;
+        Self {
+            selection: note_selections,
+        }
+    }
+}
+impl TryFrom<NoteSelection> for Note {
+    type Error = u8;
+    fn try_from(value: NoteSelection) -> Result<Self, Self::Error> {
+        let ones = value.selection.count_ones() as u8;
+        if ones > 1 {
+            Err(ones)
+        } else if value.selection & (1 << Note::A2 as u8) > 0 {
+            Ok(Note::A2)
+        } else if value.selection & (1 << Note::D1 as u8) > 0 {
+            Ok(Note::D1)
+        } else if value.selection & (1 << Note::B2 as u8) > 0 {
+            Ok(Note::B2)
+        } else if value.selection & (1 << Note::F1 as u8) > 0 {
+            Ok(Note::F1)
+        } else if value.selection & (1 << Note::D2 as u8) > 0 {
+            Ok(Note::D2)
+        } else {
+            Err(0)
+        }
+    }
+}
+impl From<Note> for NoteOffset {
+    fn from(value: Note) -> Self {
+        match value {
+            Note::A2 => Self { power: 0 },
+            Note::B2 => Self { power: 2 },
+            Note::D2 => Self { power: 5 },
+            Note::D1 => Self { power: -7 },
+            Note::F1 => Self { power: -4 },
+        }
     }
 }
 
