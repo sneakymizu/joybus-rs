@@ -55,13 +55,15 @@ fn main() -> ! {
     let mut _reader_pin = Either::Left(pins.d6.into_output_high().downgrade());
     pins.d9.into_output(); // oc1a is pb1, which is d9 on arduino nano - setting high for pwm output
 
-    arduino_hal::delay_ms(3000);
+    //arduino_hal::delay_ms(3000);
     led_pin.set_low();
     _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
     const DATA_LEN: usize = 4;
     let mut data = [0u8; DATA_LEN];
     let mut currently_selected_note: Option<Note>;
     let mut n64_controller_state: N64ControllerState;
+    let mut vibrato_counter: i8 = 0;
+    let mut vibrato_count_direction = 1i8;
     loop {
         _reader_pin = Either::Left(_reader_pin.right().into_output_high());
         unsafe { send_byte::<0x0b, 0x06, 1>([joybus_types::commands::POLL_SIGNAL]) };
@@ -101,7 +103,13 @@ fn main() -> ! {
                     - n64_controller_state.z_button() as i8  // augments half step down
                     + n64_controller_state.y_axis().signum() * 2 // augments a whole step
                     + n64_controller_state.right_trigger() as i8; // augments half step up
-                let freq = calculate_equal_temperate_frequency::<440>(power);
+                let mut freq = calculate_equal_temperate_frequency::<440>(power);
+                //let _ = uwriteln!(serial, "vibrato: {:?}\r", vibrato);
+                freq += ((freq as f32) + (SEMITONE_FACTOR / 120.0) * vibrato_counter as f32) as u16;
+                if vibrato_counter.abs() >= 4 {
+                    vibrato_count_direction *= -1;
+                }
+                vibrato_counter += vibrato_count_direction;
                 frequency_into_top(freq)
             }
             None => 0,
