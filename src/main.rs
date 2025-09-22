@@ -64,6 +64,7 @@ fn main() -> ! {
     let mut n64_controller_state: N64ControllerState;
     let mut vibrato_counter: i8 = 0;
     let mut vibrato_count_direction = 1i8;
+    const VIBRATO_MARGIN: i8 = 4;
     loop {
         _reader_pin = Either::Left(_reader_pin.right().into_output_high());
         unsafe { send_byte::<0x0b, 0x06, 1>([joybus_types::commands::POLL_SIGNAL]) };
@@ -105,8 +106,8 @@ fn main() -> ! {
                     + n64_controller_state.right_trigger() as i8; // augments half step up
                 let mut freq = calculate_equal_temperate_frequency::<440>(power);
                 //let _ = uwriteln!(serial, "vibrato: {:?}\r", vibrato);
-                freq += ((freq as f32) + (SEMITONE_FACTOR / 120.0) * vibrato_counter as f32) as u16;
-                if vibrato_counter.abs() >= 4 {
+                freq += ((freq as f32) * (SEMITONE_FACTOR / 120.0) * vibrato_counter as f32) as u16;
+                if vibrato_counter.abs() >= VIBRATO_MARGIN{
                     vibrato_count_direction *= -1;
                 }
                 vibrato_counter += vibrato_count_direction;
