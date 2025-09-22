@@ -106,8 +106,8 @@ fn main() -> ! {
                     + n64_controller_state.right_trigger() as i8; // augments half step up
                 let mut freq = calculate_equal_temperate_frequency::<440>(power);
                 //let _ = uwriteln!(serial, "vibrato: {:?}\r", vibrato);
-                freq += ((freq as f32) * (SEMITONE_FACTOR / 120.0) * vibrato_counter as f32) as u16;
-                if vibrato_counter.abs() >= VIBRATO_MARGIN{
+                freq *= (1.0 + SEMITONE_FACTOR * vibrato_counter as f32 / 120.0) as u16;
+                if vibrato_counter.abs() >= VIBRATO_MARGIN {
                     vibrato_count_direction *= -1;
                 }
                 vibrato_counter += vibrato_count_direction;
