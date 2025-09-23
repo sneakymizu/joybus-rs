@@ -3,38 +3,50 @@
 #![feature(asm_experimental_arch)]
 #![feature(asm_const)]
 
+use core::ops::{Add, BitAnd, Div, Mul, Sub};
+
+use arduino_hal::clock::Clock;
 use panic_halt as _;
-use ufmt::uwriteln;
+use ufmt::{derive::uDebug, uwriteln};
 
 use joybus_atmega328p::{read_bytes, send_byte, ReadError};
 
 use joybus_types::N64ControllerState;
 
-enum Either<L,R>{
+enum Either<L, R> {
     Left(L),
-    Right(R)
+    Right(R),
 }
-impl<L,R> Either<L,R>{
-    fn left(self)->L{
-        match self{
-            Either::Left(l)=>l,
-            Either::Right(_r)=>panic!()
+impl<L, R> Either<L, R> {
+    fn left(self) -> L {
+        match self {
+            Either::Left(l) => l,
+            Either::Right(_r) => panic!(),
         }
     }
-    fn right(self)->R{
-        match self{
-            Either::Left(_l)=>panic!(),
-            Either::Right(r)=>r
+    fn right(self) -> R {
+        match self {
+            Either::Left(_l) => panic!(),
+            Either::Right(r) => r,
         }
     }
 }
+
 #[arduino_hal::entry]
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let timer = dp.TC0;
     // normal operating timer
     timer.tccr0a.reset();
-    timer.tccr0b.write(|w|w.cs0().direct());  // no prescale, normal timer operation
+    timer.tccr0b.write(|w| w.cs0().direct()); // no prescale, normal timer operation
+    let pwm_sound_driver = dp.TC1;
+    pwm_sound_driver
+        .tccr1a
+        .write(|w| w.com1a().match_toggle().wgm1().bits(1));
+    pwm_sound_driver
+        .tccr1b
+        .write(|w| w.wgm1().bits(0b10).cs1().direct());
+
     let pins = arduino_hal::pins!(dp);
     // Digital pin 13 is also connected to an onboard LED marked "L"
     let mut led_pin = pins.d13.into_output();
@@ -42,44 +54,189 @@ fn main() -> ! {
 
     let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut _reader_pin = Either::Left(pins.d6.into_output_high().downgrade());
+    pins.d9.into_output(); // oc1a is pb1, which is d9 on arduino nano - setting high for pwm output
 
-    //uwriteln!(serial, "Lets go\r").unwrap();
     led_pin.set_low();
-    arduino_hal::delay_ms(3000);
     _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
-    const DATA_LEN:usize=4;
-    let mut data = [0u8;DATA_LEN];
+    const DATA_LEN: usize = 4;
+    let mut data = [0u8; DATA_LEN];
+    let mut currently_selected_note: Option<BaseNote>;
+    let mut n64_controller_state: N64ControllerState;
+    let mut vibrato_counter: i8 = 0;
+    let mut vibrato_count_direction = 1i8;
+    const VIBRATO_MARGIN: i8 = 4;
     loop {
         _reader_pin = Either::Left(_reader_pin.right().into_output_high());
-        unsafe {send_byte::<0x0b, 0x06, 1>([joybus_types::commands::POLL_SIGNAL])};
+        unsafe { send_byte::<0x0b, 0x06, 1>([joybus_types::commands::POLL_SIGNAL]) };
         _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
-        let _ = match unsafe{read_bytes::<0x9, 0x6, 0x26, 0x15, 1, DATA_LEN>(&mut data)}{
+        let _ = match unsafe { read_bytes::<0x9, 0x6, 0x26, 0x15, 1, DATA_LEN>(&mut data) } {
             Ok(b) => uwriteln!(serial, "(Stop-bit) Bytes are {:?} {:?}\r", b, data),
-            Err(ReadError::OutOfMemory(len)) => uwriteln!(serial, "(No Stopbit) Bytes are {:?}: {:?}\r", len, data),
+            Err(ReadError::OutOfMemory(len)) => {
+                uwriteln!(serial, "(No Stopbit) Bytes are {:?}: {:?}\r", len, data)
+            }
             Err(e) => {
                 let _ = uwriteln!(serial, "Got error {:?}\r", e);
                 continue;
-            },
+            }
         };
-        let state: N64ControllerState = data.into();
-        let _ = uwriteln!(serial, "A is {}\r", if state.a_button(){"pressed"}else{"released"});
-        let _ = uwriteln!(serial, "B is {}\r", if state.b_button(){"pressed"}else{"released"});
-        let _ = uwriteln!(serial, "Z is {}\r", if state.z_button(){"pressed"}else{"released"});
-        let _ = uwriteln!(serial, "C up is {}\r", if state.c_up(){"pressed"}else{"released"});
-        let _ = uwriteln!(serial, "C down {}\r", if state.c_down(){"pressed"}else{"released"});
-        let _ = uwriteln!(serial, "C left {}\r", if state.c_left(){"pressed"}else{"released"});
-        let _ = uwriteln!(serial, "C right {}\r", if state.c_right(){"pressed"}else{"released"});
-        let _ = uwriteln!(serial, "Reset is {}\r", if state.reset(){"pressed"}else{"released"});
-        let _ = uwriteln!(serial, "Start is {}\r", if state.start_button(){"pressed"}else{"released"});
-        let _ = uwriteln!(serial, "Right trigger is {}\r", if state.right_trigger(){"pressed"}else{"released"});
-        let _ = uwriteln!(serial, "Left trigger {}\r", if state.left_trigger(){"pressed"}else{"released"});
-        let _ = uwriteln!(serial, "Dpad up is {}\r", if state.dpad_up(){"pressed"}else{"released"});
-        let _ = uwriteln!(serial, "Dpad down is {}\r", if state.dpad_down(){"pressed"}else{"released"});
-        let _ = uwriteln!(serial, "Dpad left is {}\r", if state.dpad_left(){"pressed"}else{"released"});
-        let _ = uwriteln!(serial, "Dpad right is {}\r", if state.dpad_right(){"pressed"}else{"released"});
-        let _ = uwriteln!(serial, "X is {}\r", state.x_axis());
-        let _ = uwriteln!(serial, "Y is {}\r", state.y_axis());
 
-        arduino_hal::delay_ms(500);
+        n64_controller_state = data.into();
+        let note_selection: BaseNoteSelection = (&n64_controller_state).into();
+        let note: Result<BaseNote, u8> = note_selection.try_into();
+        currently_selected_note = match note {
+            Ok(note) => Some(note),
+            Err(0) => None,
+            Err(e) => {
+                let _ = uwriteln!(
+                    serial,
+                    "Simultaniously selected notes (counting {}), not switching.\r",
+                    e
+                );
+                continue;
+            }
+        };
+
+        let top = match currently_selected_note {
+            Some(note) => {
+                let power = <BaseNote as Into<EqualTemperateNoteOffset>>::into(note)
+                    - n64_controller_state.z_button() as i8  // augments half step down
+                    + n64_controller_state.y_axis().signum() * 2 // augments a whole step
+                    + n64_controller_state.right_trigger() as i8; // augments half step up
+                let freq = (power.into_frequency::<440>()
+                    * if vibrato_counter == 0 {
+                        1.0
+                    } else {
+                        let n64_modulation = n64_controller_state.x_axis().abs() as u8;
+                        let n64_modulation = if n64_modulation == 0 {
+                            1.0
+                        } else {
+                            1.0 + n64_modulation as f32 / 128.0
+                        };
+                        1.0 + n64_modulation * VIBRATO_FACTOR * vibrato_counter as f32
+                    }) as u16;
+                if vibrato_counter.abs() >= VIBRATO_MARGIN {
+                    vibrato_count_direction *= -1;
+                }
+                vibrato_counter += vibrato_count_direction;
+                frequency_into_top(freq)
+            }
+            None => 0,
+        };
+        pwm_sound_driver.ocr1a.write(|w| w.bits(top));
+    }
+}
+
+const VIBRATO_FACTOR: f32 = EqualTemperateNoteOffset::SEMITONE_FACTOR / 500.0;
+
+#[derive(Clone, Copy)]
+struct EqualTemperateNoteOffset {
+    power: i8,
+}
+impl EqualTemperateNoteOffset {
+    const SEMITONE_FACTOR: f32 = 1.05946309436; // 1/12
+
+    fn into_frequency<const BASE_FREQUENCY: u32>(self) -> f32 {
+        let mut frequency = BASE_FREQUENCY as f32;
+        let fun = if self.power >= 0 {
+            <f32 as Mul>::mul
+        } else {
+            <f32 as Div>::div
+        };
+        for _ in 0..self.power.abs() {
+            frequency = fun(frequency, Self::SEMITONE_FACTOR);
+        }
+        frequency + 0.5
+    }
+}
+impl Add<i8> for EqualTemperateNoteOffset {
+    type Output = Self;
+
+    fn add(self, rhs: i8) -> Self::Output {
+        Self {
+            power: self.power + rhs,
+        }
+    }
+}
+impl Sub<i8> for EqualTemperateNoteOffset {
+    type Output = Self;
+
+    fn sub(self, rhs: i8) -> Self::Output {
+        Self {
+            power: self.power - rhs,
+        }
+    }
+}
+
+#[derive(uDebug, Clone, Copy)]
+enum BaseNote {
+    D1,
+    F1,
+    A2,
+    B2,
+    D2,
+}
+#[derive(uDebug)]
+struct BaseNoteSelection {
+    // bitmask D,B,A,F,D
+    selection: u8,
+}
+impl BitAnd<u8> for BaseNoteSelection {
+    type Output = u8;
+
+    fn bitand(self, rhs: u8) -> Self::Output {
+        self.selection & rhs
+    }
+}
+impl From<&N64ControllerState> for BaseNoteSelection {
+    fn from(value: &N64ControllerState) -> Self {
+        let note_selections = (value.c_right() as u8) << BaseNote::A2 as u8
+            | (value.c_left() as u8) << BaseNote::B2 as u8
+            | (value.a_button() as u8) << BaseNote::D1 as u8
+            | (value.c_down() as u8) << BaseNote::F1 as u8
+            | (value.c_up() as u8) << BaseNote::D2 as u8;
+        Self {
+            selection: note_selections,
+        }
+    }
+}
+impl TryFrom<BaseNoteSelection> for BaseNote {
+    type Error = u8;
+    fn try_from(value: BaseNoteSelection) -> Result<Self, Self::Error> {
+        let ones = value.selection.count_ones() as u8;
+        if ones > 1 {
+            Err(ones)
+        } else if value.selection & (1 << BaseNote::A2 as u8) > 0 {
+            Ok(BaseNote::A2)
+        } else if value.selection & (1 << BaseNote::D1 as u8) > 0 {
+            Ok(BaseNote::D1)
+        } else if value.selection & (1 << BaseNote::B2 as u8) > 0 {
+            Ok(BaseNote::B2)
+        } else if value.selection & (1 << BaseNote::F1 as u8) > 0 {
+            Ok(BaseNote::F1)
+        } else if value.selection & (1 << BaseNote::D2 as u8) > 0 {
+            Ok(BaseNote::D2)
+        } else {
+            Err(0)
+        }
+    }
+}
+impl From<BaseNote> for EqualTemperateNoteOffset {
+    fn from(value: BaseNote) -> Self {
+        match value {
+            BaseNote::A2 => Self { power: 0 },
+            BaseNote::B2 => Self { power: 2 },
+            BaseNote::D2 => Self { power: 5 },
+            BaseNote::D1 => Self { power: -7 },
+            BaseNote::F1 => Self { power: -4 },
+        }
+    }
+}
+
+fn frequency_into_top(freq: u16) -> u16 {
+    // only works for 16 bit phase and frequency correct timer
+    if freq == 0 {
+        0
+    } else {
+        (arduino_hal::DefaultClock::FREQ / (4 * freq as u32)) as u16
     }
 }

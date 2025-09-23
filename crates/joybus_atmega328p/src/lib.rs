@@ -9,11 +9,13 @@ use ufmt::derive::uDebug;
 // assumes the given port is configured as output
 // designed for atmega running with 16MHz clock
 // 1µs is 16 clock cylces, 3µs is 48
-const BIT_COUNTER_INIT:u8=128u8;
+const BIT_COUNTER_INIT: u8 = 128u8;
 #[inline]
-pub unsafe fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8, const BYTES:usize>(bytes: [u8;BYTES]) {
+pub unsafe fn send_byte<const PORT: u8, const PIN_NUMBER: u8, const BYTES: usize>(
+    bytes: [u8; BYTES],
+) {
     let [high_addr, low_addr] = (bytes.as_ptr() as u16).to_be_bytes(); // 3c
-    asm!{
+    asm! {
         "ldi {byte_counter} {bytes_to_send}",
         "ldi {bit_counter} {bit_counter_init}",
         "ld {input} z+",
@@ -21,7 +23,7 @@ pub unsafe fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8, const BYTES:usize>(b
         // this setup should take too long to properly align, but a button detection functiones well
         "rjmp 5f",
         "2:",
-            "lsr {bit_counter}", // 1c        
+            "lsr {bit_counter}", // 1c
         "5:",
             "cbi {port}, {pin}", // 2c
             "breq 3f", // 1c/2c
@@ -91,7 +93,7 @@ pub unsafe fn send_byte<const PORT:u8 ,const PIN_NUMBER:u8, const BYTES:usize>(b
     }
 }
 #[derive(uDebug)]
-pub enum ReadError{
+pub enum ReadError {
     OutOfMemory(u8),
     Timeout(u8),
     UnknownError(u8),
@@ -100,17 +102,26 @@ pub enum ReadError{
 // each loop for pin check might exit with 4~5 cycles wasted & third party controllers aren't too specific about timing so this expects more than "stopbit"-low
 
 // seemingly perfect stop bit timing alignment with loading timer value is 33 cycles. So taking the 32 low cycles for stop bit + 4~5 misalignment cycles should be greater or equal to ~37
-const MINIMUM_LOW_CYCLES_FOR_0:u8=37;
- // 16+5 cycles, compares against lower
-const MAXIMUM_LOW_CYCLES_FOR_1:u8=22;
-const INIT_READ_BIT_POSITION:u8=0b10000000; // reading bits left to right
+const MINIMUM_LOW_CYCLES_FOR_0: u8 = 37;
+// 16+5 cycles, compares against lower
+const MAXIMUM_LOW_CYCLES_FOR_1: u8 = 22;
+const INIT_READ_BIT_POSITION: u8 = 0b10000000; // reading bits left to right
 
 #[inline]
-pub unsafe fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER_VALUE_REGISTER: u8, const TIMER_MATCH_REGISTER: u8, const TIMER_MATCH_NUMBER: u8, const DATA_LEN: usize>(data:&mut [u8])->Result<u8, ReadError>{
+pub unsafe fn read_bytes<
+    const PIN: u8,
+    const PIN_NUMBER: u8,
+    const TIMER_VALUE_REGISTER: u8,
+    const TIMER_MATCH_REGISTER: u8,
+    const TIMER_MATCH_NUMBER: u8,
+    const DATA_LEN: usize,
+>(
+    data: &mut [u8],
+) -> Result<u8, ReadError> {
     let [high_addr, low_addr] = (data.as_ptr() as u16).to_be_bytes(); // 3c
-    let mut errors:u8;
-    let mut bytes_read_or_additional_error_information=0u8;
-    asm!{
+    let mut errors: u8;
+    let mut bytes_read_or_additional_error_information = 0u8;
+    asm! {
         "ld {current_byte} z",
         "ldi {read_bit_position} {init_read_bit_position}", // reading bits left to right
         "ldi {timer_reset_value} 0",
@@ -190,10 +201,14 @@ pub unsafe fn read_bytes<const PIN: u8, const PIN_NUMBER: u8, const TIMER_VALUE_
         min_for_low=const MINIMUM_LOW_CYCLES_FOR_0,
         max_for_high=const MAXIMUM_LOW_CYCLES_FOR_1,
     }
-    match errors{
-        0=>Ok(bytes_read_or_additional_error_information),
-        99=>Err(ReadError::OutOfMemory(bytes_read_or_additional_error_information)),
-        98=>Err(ReadError::Timeout(bytes_read_or_additional_error_information)),
-        _=>Err(ReadError::UnknownError(errors)),
+    match errors {
+        0 => Ok(bytes_read_or_additional_error_information),
+        99 => Err(ReadError::OutOfMemory(
+            bytes_read_or_additional_error_information,
+        )),
+        98 => Err(ReadError::Timeout(
+            bytes_read_or_additional_error_information,
+        )),
+        _ => Err(ReadError::UnknownError(errors)),
     }
 }
