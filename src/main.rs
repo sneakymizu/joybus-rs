@@ -5,6 +5,7 @@
 
 use core::ops::BitAnd;
 
+use arduino_hal::clock::Clock;
 use panic_halt as _;
 use ufmt::{derive::uDebug, uwriteln};
 
@@ -214,6 +215,6 @@ fn frequency_into_top(freq: u16) -> u16 {
     if freq == 0 {
         0
     } else {
-        (16000000 / (4 * freq as u32)) as u16
+        (arduino_hal::DefaultClock::FREQ / (4 * freq as u32)) as u16
     }
 }
