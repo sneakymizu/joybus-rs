@@ -103,13 +103,12 @@ fn main() -> ! {
                     - n64_controller_state.z_button() as i8  // augments half step down
                     + n64_controller_state.y_axis().signum() * 2 // augments a whole step
                     + n64_controller_state.right_trigger() as i8; // augments half step up
-                let freq = if vibrato_counter == 0 {
-                    calculate_equal_temperate_frequency::<440>(power)
-                } else {
-                    (calculate_equal_temperate_frequency::<440>(power) as f32
-                        * (1.0 + VIBRATO_FACTOR * vibrato_counter as f32))
-                        as u16
-                };
+                let freq = (calculate_equal_temperate_frequency::<440>(power)
+                    * if vibrato_counter == 0 {
+                        1.0
+                    } else {
+                        1.0 + VIBRATO_FACTOR * vibrato_counter as f32
+                    }) as u16;
                 if vibrato_counter.abs() >= VIBRATO_MARGIN {
                     vibrato_count_direction *= -1;
                 }
@@ -193,7 +192,8 @@ impl From<Note> for NoteOffset {
 
 const SEMITONE_FACTOR: f32 = 1.05946309436;
 const VIBRATO_FACTOR: f32 = SEMITONE_FACTOR / 500.0;
-fn calculate_equal_temperate_frequency<const BASE_FREQUENCY: u32>(power: i8) -> u16 {
+#[inline]
+fn calculate_equal_temperate_frequency<const BASE_FREQUENCY: u32>(power: i8) -> f32 {
     let mut frequency = BASE_FREQUENCY as f32;
     let fun = if power >= 0 {
         <f32 as core::ops::Mul>::mul
@@ -203,7 +203,7 @@ fn calculate_equal_temperate_frequency<const BASE_FREQUENCY: u32>(power: i8) -> 
     for _ in 0..power.abs() {
         frequency = fun(frequency, SEMITONE_FACTOR);
     }
-    (frequency + 0.5) as u16
+    frequency + 0.5
 }
 
 fn frequency_into_top(freq: u16) -> u16 {
