@@ -55,7 +55,6 @@ fn main() -> ! {
     let mut _reader_pin = Either::Left(pins.d6.into_output_high().downgrade());
     pins.d9.into_output(); // oc1a is pb1, which is d9 on arduino nano - setting high for pwm output
 
-    //arduino_hal::delay_ms(3000);
     led_pin.set_low();
     _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
     const DATA_LEN: usize = 4;
@@ -66,17 +65,16 @@ fn main() -> ! {
     let mut vibrato_count_direction = 1i8;
     const VIBRATO_MARGIN: i8 = 4;
     loop {
-        let _ = uwriteln!(serial, "start polling\r");
         _reader_pin = Either::Left(_reader_pin.right().into_output_high());
         unsafe { send_byte::<0x0b, 0x06, 1>([joybus_types::commands::POLL_SIGNAL]) };
         _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
         let _ = match unsafe { read_bytes::<0x9, 0x6, 0x26, 0x15, 1, DATA_LEN>(&mut data) } {
-            Ok(b) => (), //uwriteln!(serial, "(Stop-bit) Bytes are {:?} {:?}\r", b, data),
+            Ok(b) => uwriteln!(serial, "(Stop-bit) Bytes are {:?} {:?}\r", b, data),
             Err(ReadError::OutOfMemory(len)) => {
-                //let _ = uwriteln!(serial, "(No Stopbit) Bytes are {:?}: {:?}\r", len, data);
+                uwriteln!(serial, "(No Stopbit) Bytes are {:?}: {:?}\r", len, data)
             }
             Err(e) => {
-                //let _ = uwriteln!(serial, "Got error {:?}\r", e);
+                let _ = uwriteln!(serial, "Got error {:?}\r", e);
                 continue;
             }
         };
@@ -107,13 +105,18 @@ fn main() -> ! {
                     * if vibrato_counter == 0 {
                         1.0
                     } else {
-                        1.0 + VIBRATO_FACTOR * vibrato_counter as f32
+                        let n64_modulation = n64_controller_state.x_axis().abs() as u8;
+                        let n64_modulation = if n64_modulation == 0 {
+                            1.0
+                        } else {
+                            1.0 + n64_modulation as f32 / 128.0
+                        };
+                        1.0 + n64_modulation * VIBRATO_FACTOR * vibrato_counter as f32
                     }) as u16;
                 if vibrato_counter.abs() >= VIBRATO_MARGIN {
                     vibrato_count_direction *= -1;
                 }
                 vibrato_counter += vibrato_count_direction;
-                let _ = uwriteln!(serial, "freq: {:?}\r", freq);
                 frequency_into_top(freq)
             }
             None => 0,
