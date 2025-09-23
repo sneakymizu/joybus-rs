@@ -66,25 +66,24 @@ fn main() -> ! {
     let mut vibrato_count_direction = 1i8;
     const VIBRATO_MARGIN: i8 = 4;
     loop {
+        let _ = uwriteln!(serial, "start polling\r");
         _reader_pin = Either::Left(_reader_pin.right().into_output_high());
         unsafe { send_byte::<0x0b, 0x06, 1>([joybus_types::commands::POLL_SIGNAL]) };
         _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
         let _ = match unsafe { read_bytes::<0x9, 0x6, 0x26, 0x15, 1, DATA_LEN>(&mut data) } {
-            Ok(b) => uwriteln!(serial, "(Stop-bit) Bytes are {:?} {:?}\r", b, data),
+            Ok(b) => (), //uwriteln!(serial, "(Stop-bit) Bytes are {:?} {:?}\r", b, data),
             Err(ReadError::OutOfMemory(len)) => {
-                uwriteln!(serial, "(No Stopbit) Bytes are {:?}: {:?}\r", len, data)
+                //let _ = uwriteln!(serial, "(No Stopbit) Bytes are {:?}: {:?}\r", len, data);
             }
             Err(e) => {
-                let _ = uwriteln!(serial, "Got error {:?}\r", e);
+                //let _ = uwriteln!(serial, "Got error {:?}\r", e);
                 continue;
             }
         };
 
         n64_controller_state = data.into();
         let note_selection: NoteSelection = (&n64_controller_state).into();
-        let _ = uwriteln!(serial, "notes: {:?}\r", note_selection);
         let note: Result<Note, u8> = note_selection.try_into();
-        let _ = uwriteln!(serial, "note: {:?}\r", note);
         currently_selected_note = match note {
             Ok(note) => Some(note),
             Err(0) => None,
@@ -104,13 +103,18 @@ fn main() -> ! {
                     - n64_controller_state.z_button() as i8  // augments half step down
                     + n64_controller_state.y_axis().signum() * 2 // augments a whole step
                     + n64_controller_state.right_trigger() as i8; // augments half step up
-                let mut freq = calculate_equal_temperate_frequency::<440>(power);
-                //let _ = uwriteln!(serial, "vibrato: {:?}\r", vibrato);
-                freq *= (1.0 + SEMITONE_FACTOR * vibrato_counter as f32 / 120.0) as u16;
+                let freq = if vibrato_counter == 0 {
+                    calculate_equal_temperate_frequency::<440>(power)
+                } else {
+                    (calculate_equal_temperate_frequency::<440>(power) as f32
+                        * (1.0 + VIBRATO_FACTOR * vibrato_counter as f32))
+                        as u16
+                };
                 if vibrato_counter.abs() >= VIBRATO_MARGIN {
                     vibrato_count_direction *= -1;
                 }
                 vibrato_counter += vibrato_count_direction;
+                let _ = uwriteln!(serial, "freq: {:?}\r", freq);
                 frequency_into_top(freq)
             }
             None => 0,
@@ -188,6 +192,7 @@ impl From<Note> for NoteOffset {
 }
 
 const SEMITONE_FACTOR: f32 = 1.05946309436;
+const VIBRATO_FACTOR: f32 = SEMITONE_FACTOR / 500.0;
 fn calculate_equal_temperate_frequency<const BASE_FREQUENCY: u32>(power: i8) -> u16 {
     let mut frequency = BASE_FREQUENCY as f32;
     let fun = if power >= 0 {
@@ -203,6 +208,9 @@ fn calculate_equal_temperate_frequency<const BASE_FREQUENCY: u32>(power: i8) -> 
 
 fn frequency_into_top(freq: u16) -> u16 {
     // only works for 16 bit phase and frequency correct timer
-    let res = 16000000 / (4 * freq as u32);
-    res as u16
+    if freq == 0 {
+        0
+    } else {
+        (16000000 / (4 * freq as u32)) as u16
+    }
 }
