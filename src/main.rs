@@ -3,7 +3,7 @@
 #![feature(asm_experimental_arch)]
 #![feature(asm_const)]
 
-use core::ops::BitAnd;
+use core::ops::{Add, BitAnd, Div, Mul, Sub};
 
 use arduino_hal::clock::Clock;
 use panic_halt as _;
@@ -60,7 +60,7 @@ fn main() -> ! {
     _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
     const DATA_LEN: usize = 4;
     let mut data = [0u8; DATA_LEN];
-    let mut currently_selected_note: Option<Note>;
+    let mut currently_selected_note: Option<BaseNote>;
     let mut n64_controller_state: N64ControllerState;
     let mut vibrato_counter: i8 = 0;
     let mut vibrato_count_direction = 1i8;
@@ -81,8 +81,8 @@ fn main() -> ! {
         };
 
         n64_controller_state = data.into();
-        let note_selection: NoteSelection = (&n64_controller_state).into();
-        let note: Result<Note, u8> = note_selection.try_into();
+        let note_selection: BaseNoteSelection = (&n64_controller_state).into();
+        let note: Result<BaseNote, u8> = note_selection.try_into();
         currently_selected_note = match note {
             Ok(note) => Some(note),
             Err(0) => None,
@@ -98,11 +98,11 @@ fn main() -> ! {
 
         let top = match currently_selected_note {
             Some(note) => {
-                let power = <Note as Into<NoteOffset>>::into(note).power
+                let power = <BaseNote as Into<EqualTemperateNoteOffset>>::into(note)
                     - n64_controller_state.z_button() as i8  // augments half step down
                     + n64_controller_state.y_axis().signum() * 2 // augments a whole step
                     + n64_controller_state.right_trigger() as i8; // augments half step up
-                let freq = (calculate_equal_temperate_frequency::<440>(power)
+                let freq = (power.into_frequency::<440>()
                     * if vibrato_counter == 0 {
                         1.0
                     } else {
@@ -126,11 +126,49 @@ fn main() -> ! {
     }
 }
 
-struct NoteOffset {
+const VIBRATO_FACTOR: f32 = EqualTemperateNoteOffset::SEMITONE_FACTOR / 500.0;
+
+#[derive(Clone, Copy)]
+struct EqualTemperateNoteOffset {
     power: i8,
 }
+impl EqualTemperateNoteOffset {
+    const SEMITONE_FACTOR: f32 = 1.05946309436; // 1/12
+
+    fn into_frequency<const BASE_FREQUENCY: u32>(self) -> f32 {
+        let mut frequency = BASE_FREQUENCY as f32;
+        let fun = if self.power >= 0 {
+            <f32 as Mul>::mul
+        } else {
+            <f32 as Div>::div
+        };
+        for _ in 0..self.power.abs() {
+            frequency = fun(frequency, Self::SEMITONE_FACTOR);
+        }
+        frequency + 0.5
+    }
+}
+impl Add<i8> for EqualTemperateNoteOffset {
+    type Output = Self;
+
+    fn add(self, rhs: i8) -> Self::Output {
+        Self {
+            power: self.power + rhs,
+        }
+    }
+}
+impl Sub<i8> for EqualTemperateNoteOffset {
+    type Output = Self;
+
+    fn sub(self, rhs: i8) -> Self::Output {
+        Self {
+            power: self.power - rhs,
+        }
+    }
+}
+
 #[derive(uDebug, Clone, Copy)]
-enum Note {
+enum BaseNote {
     D1,
     F1,
     A2,
@@ -138,76 +176,60 @@ enum Note {
     D2,
 }
 #[derive(uDebug)]
-struct NoteSelection {
+struct BaseNoteSelection {
     // bitmask D,B,A,F,D
     selection: u8,
 }
-impl BitAnd<u8> for NoteSelection {
+impl BitAnd<u8> for BaseNoteSelection {
     type Output = u8;
 
     fn bitand(self, rhs: u8) -> Self::Output {
         self.selection & rhs
     }
 }
-impl From<&N64ControllerState> for NoteSelection {
+impl From<&N64ControllerState> for BaseNoteSelection {
     fn from(value: &N64ControllerState) -> Self {
-        let note_selections = (value.c_right() as u8) << Note::A2 as u8
-            | (value.c_left() as u8) << Note::B2 as u8
-            | (value.a_button() as u8) << Note::D1 as u8
-            | (value.c_down() as u8) << Note::F1 as u8
-            | (value.c_up() as u8) << Note::D2 as u8;
+        let note_selections = (value.c_right() as u8) << BaseNote::A2 as u8
+            | (value.c_left() as u8) << BaseNote::B2 as u8
+            | (value.a_button() as u8) << BaseNote::D1 as u8
+            | (value.c_down() as u8) << BaseNote::F1 as u8
+            | (value.c_up() as u8) << BaseNote::D2 as u8;
         Self {
             selection: note_selections,
         }
     }
 }
-impl TryFrom<NoteSelection> for Note {
+impl TryFrom<BaseNoteSelection> for BaseNote {
     type Error = u8;
-    fn try_from(value: NoteSelection) -> Result<Self, Self::Error> {
+    fn try_from(value: BaseNoteSelection) -> Result<Self, Self::Error> {
         let ones = value.selection.count_ones() as u8;
         if ones > 1 {
             Err(ones)
-        } else if value.selection & (1 << Note::A2 as u8) > 0 {
-            Ok(Note::A2)
-        } else if value.selection & (1 << Note::D1 as u8) > 0 {
-            Ok(Note::D1)
-        } else if value.selection & (1 << Note::B2 as u8) > 0 {
-            Ok(Note::B2)
-        } else if value.selection & (1 << Note::F1 as u8) > 0 {
-            Ok(Note::F1)
-        } else if value.selection & (1 << Note::D2 as u8) > 0 {
-            Ok(Note::D2)
+        } else if value.selection & (1 << BaseNote::A2 as u8) > 0 {
+            Ok(BaseNote::A2)
+        } else if value.selection & (1 << BaseNote::D1 as u8) > 0 {
+            Ok(BaseNote::D1)
+        } else if value.selection & (1 << BaseNote::B2 as u8) > 0 {
+            Ok(BaseNote::B2)
+        } else if value.selection & (1 << BaseNote::F1 as u8) > 0 {
+            Ok(BaseNote::F1)
+        } else if value.selection & (1 << BaseNote::D2 as u8) > 0 {
+            Ok(BaseNote::D2)
         } else {
             Err(0)
         }
     }
 }
-impl From<Note> for NoteOffset {
-    fn from(value: Note) -> Self {
+impl From<BaseNote> for EqualTemperateNoteOffset {
+    fn from(value: BaseNote) -> Self {
         match value {
-            Note::A2 => Self { power: 0 },
-            Note::B2 => Self { power: 2 },
-            Note::D2 => Self { power: 5 },
-            Note::D1 => Self { power: -7 },
-            Note::F1 => Self { power: -4 },
+            BaseNote::A2 => Self { power: 0 },
+            BaseNote::B2 => Self { power: 2 },
+            BaseNote::D2 => Self { power: 5 },
+            BaseNote::D1 => Self { power: -7 },
+            BaseNote::F1 => Self { power: -4 },
         }
     }
-}
-
-const SEMITONE_FACTOR: f32 = 1.05946309436;
-const VIBRATO_FACTOR: f32 = SEMITONE_FACTOR / 500.0;
-#[inline]
-fn calculate_equal_temperate_frequency<const BASE_FREQUENCY: u32>(power: i8) -> f32 {
-    let mut frequency = BASE_FREQUENCY as f32;
-    let fun = if power >= 0 {
-        <f32 as core::ops::Mul>::mul
-    } else {
-        <f32 as core::ops::Div>::div
-    };
-    for _ in 0..power.abs() {
-        frequency = fun(frequency, SEMITONE_FACTOR);
-    }
-    frequency + 0.5
 }
 
 fn frequency_into_top(freq: u16) -> u16 {
