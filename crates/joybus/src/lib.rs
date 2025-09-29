@@ -1,5 +1,39 @@
 #![no_std]
 
+pub enum JoybusError {
+    Timeout,
+    ResponseMismatch,
+}
+pub trait JoybusConsole {
+    fn read<const COMMAND: u8>(&mut self, data: &mut [u8]) -> Result<usize, JoybusError>;
+    fn write<const COMMAND: u8>(
+        &mut self,
+        write_data: &[u8],
+        read_data: &mut [u8],
+    ) -> Result<usize, JoybusError>;
+}
+pub trait JoybusConsoleExt: JoybusConsole {
+    fn read_contoller_state_alloc(&mut self) -> Result<JoybusControllerState, JoybusError> {
+        let mut data = [0u8; 4];
+        self.read_contoller_state(&mut data)
+    }
+    fn read_contoller_state(
+        &mut self,
+        data: &mut [u8],
+    ) -> Result<JoybusControllerState, JoybusError> {
+        let res = self.read::<{ commands::POLL_SIGNAL }>(data)?;
+        if res != 4 {
+            Err(JoybusError::ResponseMismatch)
+        } else {
+            let data: [u8; 4] = data
+                .as_ref()
+                .try_into()
+                .map_err(|_| JoybusError::ResponseMismatch)?;
+            Ok(JoybusControllerState::from(data))
+        }
+    }
+}
+
 pub struct JoybusControllerState([u8; 4]);
 impl From<[u8; 4]> for JoybusControllerState {
     fn from(value: [u8; 4]) -> Self {
