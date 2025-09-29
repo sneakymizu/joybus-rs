@@ -11,7 +11,7 @@ use ufmt::{derive::uDebug, uwriteln};
 
 use joybus_atmega328p::{read_bytes, send_byte, ReadError};
 
-use joybus_types::N64ControllerState;
+use joybus_rs::JoybusControllerState;
 
 enum Either<L, R> {
     Left(L),
@@ -61,13 +61,13 @@ fn main() -> ! {
     const DATA_LEN: usize = 4;
     let mut data = [0u8; DATA_LEN];
     let mut currently_selected_note: Option<BaseNote>;
-    let mut n64_controller_state: N64ControllerState;
+    let mut n64_controller_state: JoybusControllerState;
     let mut vibrato_counter: i8 = 0;
     let mut vibrato_count_direction = 1i8;
     const VIBRATO_MARGIN: i8 = 4;
     loop {
         _reader_pin = Either::Left(_reader_pin.right().into_output_high());
-        unsafe { send_byte::<0x0b, 0x06, 1>([joybus_types::commands::POLL_SIGNAL]) };
+        unsafe { send_byte::<0x0b, 0x06, 1>([joybus_rs::commands::POLL_SIGNAL]) };
         _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
         let _ = match unsafe { read_bytes::<0x9, 0x6, 0x26, 0x15, 1, DATA_LEN>(&mut data) } {
             Ok(b) => uwriteln!(serial, "(Stop-bit) Bytes are {:?} {:?}\r", b, data),
@@ -187,8 +187,8 @@ impl BitAnd<u8> for BaseNoteSelection {
         self.selection & rhs
     }
 }
-impl From<&N64ControllerState> for BaseNoteSelection {
-    fn from(value: &N64ControllerState) -> Self {
+impl From<&JoybusControllerState> for BaseNoteSelection {
+    fn from(value: &JoybusControllerState) -> Self {
         let note_selections = (value.c_right() as u8) << BaseNote::A2 as u8
             | (value.c_left() as u8) << BaseNote::B2 as u8
             | (value.a_button() as u8) << BaseNote::D1 as u8
