@@ -1,17 +1,17 @@
 #![no_std]
 
-pub struct N64ControllerState([u8; 4]);
-impl From<[u8; 4]> for N64ControllerState {
+pub struct JoybusControllerState([u8; 4]);
+impl From<[u8; 4]> for JoybusControllerState {
     fn from(value: [u8; 4]) -> Self {
-        N64ControllerState(value)
+        JoybusControllerState(value)
     }
 }
-impl From<u32> for N64ControllerState {
+impl From<u32> for JoybusControllerState {
     fn from(value: u32) -> Self {
-        N64ControllerState(value.to_le_bytes())
+        JoybusControllerState(value.to_le_bytes())
     }
 }
-impl N64ControllerState {
+impl JoybusControllerState {
     pub fn a_button(&self) -> bool {
         (self.0[0] & 128u8) != 0
     }
