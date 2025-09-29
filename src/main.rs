@@ -9,7 +9,7 @@ use arduino_hal::clock::Clock;
 use panic_halt as _;
 use ufmt::{derive::uDebug, uwriteln};
 
-use joybus_atmega328p::{read_bytes, send_byte, ReadError};
+use joybus_rs_atmega328p::{read_bytes, send_byte, ReadError};
 
 use joybus_rs::JoybusControllerState;
 

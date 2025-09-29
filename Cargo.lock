@@ -127,7 +127,7 @@ name = "joybus-rs"
 version = "0.1.0"
 
 [[package]]
-name = "joybus_atmega328p"
+name = "joybus-rs-atmega328p"
 version = "0.1.0"
 dependencies = [
  "ufmt",
@@ -186,7 +186,7 @@ dependencies = [
  "avr-device",
  "embedded-hal 0.2.7",
  "joybus-rs",
- "joybus_atmega328p",
+ "joybus-rs-atmega328p",
  "panic-halt",
  "ufmt",
 ]

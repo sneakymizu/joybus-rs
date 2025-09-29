@@ -1,5 +1,5 @@
 [package]
-name = "joybus_atmega328p"
+name = "joybus-rs-atmega328p"
 version = "0.1.0"
 edition = "2021"
 
