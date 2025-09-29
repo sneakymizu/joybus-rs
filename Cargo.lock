@@ -10,7 +10,7 @@ dependencies = [
  "atmega-hal",
  "avr-device",
  "avr-hal-generic",
- "cfg-if 1.0.0",
+ "cfg-if 1.0.3",
  "embedded-hal 0.2.7",
  "embedded-hal 1.0.0",
  "ufmt",
@@ -33,7 +33,7 @@ checksum = "546b09da5e933d18b790ccb5aae351371c6c4f8094a7b011dcd7c7e7fb69cc94"
 dependencies = [
  "avr-device-macros",
  "bare-metal",
- "cfg-if 1.0.0",
+ "cfg-if 1.0.3",
  "vcell",
 ]
 
@@ -80,15 +80,15 @@ checksum = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
 
 [[package]]
 name = "cfg-if"
-version = "1.0.0"
+version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
+checksum = "2fd1289c04a9ea8cb22300a459a72a385d7c73d3259e2ed7dcb2af674838cfa9"
 
 [[package]]
 name = "critical-section"
-version = "1.1.2"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7059fff8937831a9ae6f0fe4d658ffabf58f2ca96aa9dec1c889f936f705f216"
+checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 
 [[package]]
 name = "embedded-hal"
@@ -130,6 +130,8 @@ version = "0.1.0"
 name = "joybus-rs-atmega328p"
 version = "0.1.0"
 dependencies = [
+ "embedded-hal 1.0.0",
+ "joybus-rs",
  "ufmt",
 ]
 
@@ -156,9 +158,9 @@ checksum = "de96540e0ebde571dc55c73d60ef407c653844e6f9a1e2fdbd40c07b9252d812"
 
 [[package]]
 name = "paste"
-version = "1.0.14"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "proc-macro2"
@@ -184,7 +186,7 @@ version = "0.1.0"
 dependencies = [
  "arduino-hal",
  "avr-device",
- "embedded-hal 0.2.7",
+ "embedded-hal 1.0.0",
  "joybus-rs",
  "joybus-rs-atmega328p",
  "panic-halt",
@@ -193,9 +195,9 @@ dependencies = [
 
 [[package]]
 name = "rustversion"
-version = "1.0.14"
+version = "1.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ffc183a10b4478d04cbbbfc96d0873219d962dd5accaff2ffbd4ceb7df837f4"
+checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
 name = "syn"
