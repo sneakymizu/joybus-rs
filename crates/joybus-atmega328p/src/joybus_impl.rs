@@ -29,16 +29,42 @@ impl<P: SwappablePin> JoybusPin<P> {
         }
     }
 }
-
+macro_rules! console_read {
+    ($port:item) => {
+        
+    };
+}
 impl<P: SwappablePin> JoybusConsole for JoybusPin<P> {
     fn read<const COMMAND: u8>(
         &mut self,
         data: &mut [u8],
     ) -> Result<usize, joybus_rs::JoybusError> {
         match self.pin.as_output(){
-            OutputPinData { pin_number, port }=>unsafe {
-                send_byte::<0x0b, 0x06, 1>([joybus_rs::commands::POLL_SIGNAL])
+            OutputPinData { port:0x0b, pin_number:0x01 }=>unsafe {
+                send_byte::<0x0b, 0x01, 1>([joybus_rs::commands::POLL_SIGNAL]);
             }
+            OutputPinData { port:0x0b, pin_number:0x02 }=>unsafe {
+                send_byte::<0x0b, 0x02, 1>([joybus_rs::commands::POLL_SIGNAL]);
+            }
+            OutputPinData { port:0x0b, pin_number:0x03 }=>unsafe {
+                send_byte::<0x0b, 0x03, 1>([joybus_rs::commands::POLL_SIGNAL]);
+            }
+            OutputPinData { port:0x0b, pin_number:0x04 }=>unsafe {
+                send_byte::<0x0b, 0x04, 1>([joybus_rs::commands::POLL_SIGNAL]);
+            }
+            OutputPinData { port:0x0b,pin_number:0x05 }=>unsafe {
+                send_byte::<0x0b, 0x05, 1>([joybus_rs::commands::POLL_SIGNAL]);
+            }
+            OutputPinData { port:0x0b, pin_number:0x06 }=>unsafe {
+                send_byte::<0x0b, 0x06, 1>([joybus_rs::commands::POLL_SIGNAL]);
+            }
+            OutputPinData { port:0x0b,pin_number:0x07 }=>unsafe {
+                send_byte::<0x0b, 0x07, 1>([joybus_rs::commands::POLL_SIGNAL]);
+            }
+            OutputPinData { port:0x0b,pin_number:0x08 }=>unsafe {
+                send_byte::<0x0b, 0x08, 1>([joybus_rs::commands::POLL_SIGNAL]);
+            }
+            _=>()
         }
         unsafe { send_byte::<0x0b, 0x06, 1>([joybus_rs::commands::POLL_SIGNAL]) };
         self.pin.as_input();
