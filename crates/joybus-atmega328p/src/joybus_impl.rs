@@ -35,74 +35,21 @@ trait JoybusPinRead<const R: usize, const W: usize> {
     fn joybus_read(&mut self, send: &[u8; W], recv: &mut [u8; R])->Result<usize,ReadError>;
 }
 
-impl<const R: usize, const W: usize> JoybusPinRead<R, W> for PinWrapper<port::PB0> {
-    fn joybus_read(&mut self, send: &[u8; W], recv: &mut [u8; R]) -> Result<usize, ReadError>{
-        let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x0b, 0x00, W>(send) };
-        self.input = Some(output.into_floating_input());
-        unsafe { read_bytes::<0x9, 0x0, 0x26, 0x15, 1, R>(recv) }.map(|v| v as usize)
-    }
+macro_rules! pin_to_const {
+    (::arduino_hal::hal::port::PB0) =>{(0x09u8, 0x0bu8,0x00u8)};
+    ()=>{panic!("dunno what to insert")};
 }
 
-impl<const R: usize, const W: usize> JoybusPinRead<R, W> for PinWrapper<port::PB1> {
+impl<const R: usize, const W: usize, SOMEPIN: PinOps> JoybusPinRead<R, W> for PinWrapper<SOMEPIN> {
     fn joybus_read(&mut self, send: &[u8; W], recv: &mut [u8; R]) -> Result<usize, ReadError>{
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x0b, 0x01, W>(send) };
-        self.input = Some(output.into_floating_input());
-        unsafe { read_bytes::<0x9, 0x1, 0x26, 0x15, 1, R>(recv) }.map(|v| v as usize)
-    }
-}
-
-impl<const R: usize, const W: usize> JoybusPinRead<R, W> for PinWrapper<port::PB2> {
-    fn joybus_read(&mut self, send: &[u8; W], recv: &mut [u8; R]) -> Result<usize, ReadError>{
-        let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x0b, 0x02, W>(send) };
-        self.input = Some(output.into_floating_input());
-        unsafe { read_bytes::<0x9, 0x2, 0x26, 0x15, 1, R>(recv) }.map(|v| v as usize)
-    }
-}
-
-impl<const R: usize, const W: usize> JoybusPinRead<R, W> for PinWrapper<port::PB3> {
-    fn joybus_read(&mut self, send: &[u8; W], recv: &mut [u8; R]) -> Result<usize, ReadError>{
-        let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x0b, 0x03, W>(send) };
-        self.input = Some(output.into_floating_input());
-        unsafe { read_bytes::<0x9, 0x3, 0x26, 0x15, 1, R>(recv) }.map(|v| v as usize)
-    }
-}
-
-impl<const R: usize, const W: usize> JoybusPinRead<R, W> for PinWrapper<port::PB4> {
-    fn joybus_read(&mut self, send: &[u8; W], recv: &mut [u8; R]) -> Result<usize, ReadError>{
-        let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x0b, 0x04, W>(send) };
-        self.input = Some(output.into_floating_input());
-        unsafe { read_bytes::<0x9, 0x4, 0x26, 0x15, 1, R>(recv) }.map(|v| v as usize)
-    }
-}
-impl<const R: usize, const W: usize> JoybusPinRead<R, W> for PinWrapper<port::PB5> {
-    fn joybus_read(&mut self, send: &[u8; W], recv: &mut [u8; R]) -> Result<usize, ReadError>{
-        let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x0b, 0x05, W>(send) };
-        self.input = Some(output.into_floating_input());
-        unsafe { read_bytes::<0x9, 0x5, 0x26, 0x15, 1, R>(recv) }.map(|v| v as usize)
-    }
-}
-impl<const R: usize, const W: usize> JoybusPinRead<R, W> for PinWrapper<port::PB6> {
-    fn joybus_read(&mut self, send: &[u8; W], recv: &mut [u8; R]) -> Result<usize, ReadError>{
-        let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x0b, 0x06, W>(send) };
-        self.input = Some(output.into_floating_input());
-        unsafe { read_bytes::<0x9, 0x6, 0x26, 0x15, 1, R>(recv) }.map(|v| v as usize)
-    }
-}
-impl<const R: usize, const W: usize> JoybusPinRead<R, W> for PinWrapper<port::PB7> {
-    fn joybus_read(&mut self, send: &[u8; W], recv: &mut [u8; R]) -> Result<usize, ReadError>{
-        let output = self.input.take().unwrap().into_output_high();
+        let (PIN,PORT,NUMBER)=pin_to_const!(SOMEPIN);
         unsafe { send_byte::<0x0b, 0x07, W>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x9, 0x7, 0x26, 0x15, 1, R>(recv) }.map(|v| v as usize)
     }
 }
+
 
 impl<PIN> JoybusConsole for JoybusPin<PIN> {
     fn read<const COMMAND: u8>(
