@@ -3,6 +3,7 @@
 #![feature(asm_experimental_arch)]
 #![feature(asm_const)]
 
+#[cfg(feature = "joybus")]
 mod joybus_impl;
 use core::arch::asm;
 use ufmt::derive::uDebug;

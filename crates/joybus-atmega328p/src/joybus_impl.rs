@@ -1,75 +1,28 @@
-use core::marker::PhantomData;
-
-use embedded_hal::digital::{InputPin, OutputPin};
 use joybus_rs::JoybusConsole;
 
 use crate::{read_bytes, send_byte};
 
-pub struct OutputPinData{
-    pub pin_number: u8,
-    pub port: u8,
-}
-pub struct InputPinData{
-    pub pin_number: u8,
-    pub pin:u8
-}
-pub trait SwappablePin {
-    fn as_output(&mut self)->&OutputPinData;
-    fn as_input(&mut self)->&InputPinData;
+struct JoybusPin<PIN> {
+    pin: PIN,
 }
 
-pub struct JoybusPin<P: SwappablePin> {
-    pin: P,
-}
-
-impl<P: SwappablePin> JoybusPin<P> {
-    pub fn from_pin(pin: P) -> Self {
-        Self {
-            pin,
-        }
+impl<PIN> JoybusPin<PIN> {
+    pub fn from_pin(input: PIN) -> Self {
+        Self { pin: input }
     }
 }
+
 macro_rules! console_read {
-    ($port:item) => {
-        
-    };
+    ($port:item) => {};
 }
-impl<P: SwappablePin> JoybusConsole for JoybusPin<P> {
+
+impl<PIN> JoybusConsole for JoybusPin<PIN> {
     fn read<const COMMAND: u8>(
         &mut self,
         data: &mut [u8],
     ) -> Result<usize, joybus_rs::JoybusError> {
-        match self.pin.as_output(){
-            OutputPinData { port:0x0b, pin_number:0x01 }=>unsafe {
-                send_byte::<0x0b, 0x01, 1>([joybus_rs::commands::POLL_SIGNAL]);
-            }
-            OutputPinData { port:0x0b, pin_number:0x02 }=>unsafe {
-                send_byte::<0x0b, 0x02, 1>([joybus_rs::commands::POLL_SIGNAL]);
-            }
-            OutputPinData { port:0x0b, pin_number:0x03 }=>unsafe {
-                send_byte::<0x0b, 0x03, 1>([joybus_rs::commands::POLL_SIGNAL]);
-            }
-            OutputPinData { port:0x0b, pin_number:0x04 }=>unsafe {
-                send_byte::<0x0b, 0x04, 1>([joybus_rs::commands::POLL_SIGNAL]);
-            }
-            OutputPinData { port:0x0b,pin_number:0x05 }=>unsafe {
-                send_byte::<0x0b, 0x05, 1>([joybus_rs::commands::POLL_SIGNAL]);
-            }
-            OutputPinData { port:0x0b, pin_number:0x06 }=>unsafe {
-                send_byte::<0x0b, 0x06, 1>([joybus_rs::commands::POLL_SIGNAL]);
-            }
-            OutputPinData { port:0x0b,pin_number:0x07 }=>unsafe {
-                send_byte::<0x0b, 0x07, 1>([joybus_rs::commands::POLL_SIGNAL]);
-            }
-            OutputPinData { port:0x0b,pin_number:0x08 }=>unsafe {
-                send_byte::<0x0b, 0x08, 1>([joybus_rs::commands::POLL_SIGNAL]);
-            }
-            _=>()
-        }
         unsafe { send_byte::<0x0b, 0x06, 1>([joybus_rs::commands::POLL_SIGNAL]) };
-        self.pin.as_input();
         let _ = unsafe { read_bytes::<0x9, 0x6, 0x26, 0x15, 1, 4>(data) };
-        self.pin.as_output();
         Ok(0)
     }
 
