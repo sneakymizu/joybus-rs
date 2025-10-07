@@ -9,28 +9,9 @@ use arduino_hal::clock::Clock;
 use panic_halt as _;
 use ufmt::{derive::uDebug, uwriteln};
 
-use joybus_rs_atmega328p::{new_console, read_bytes, send_byte, ReadError};
+use joybus_rs_atmega328p::new_console;
 
-use joybus_rs::{JoybusConsole, JoybusControllerState};
-
-enum Either<L, R> {
-    Left(L),
-    Right(R),
-}
-impl<L, R> Either<L, R> {
-    fn left(self) -> L {
-        match self {
-            Either::Left(l) => l,
-            Either::Right(_r) => panic!(),
-        }
-    }
-    fn right(self) -> R {
-        match self {
-            Either::Left(_l) => panic!(),
-            Either::Right(r) => r,
-        }
-    }
-}
+use joybus_rs::{JoybusConsole, JoybusControllerState, JoybusError};
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -53,11 +34,10 @@ fn main() -> ! {
     led_pin.set_high();
 
     let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
-    let mut _reader_pin = Either::Left(pins.d6.into_output_high().downgrade());
+    let mut reader_pin = new_console(pins.d6);
     pins.d9.into_output(); // oc1a is pb1, which is d9 on arduino nano - setting high for pwm output
 
     led_pin.set_low();
-    _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
     const DATA_LEN: usize = 4;
     let mut data = [0u8; DATA_LEN];
     let mut currently_selected_note: Option<BaseNote>;
@@ -66,12 +46,9 @@ fn main() -> ! {
     let mut vibrato_count_direction = 1i8;
     const VIBRATO_MARGIN: i8 = 4;
     loop {
-        _reader_pin = Either::Left(_reader_pin.right().into_output_high());
-        unsafe { send_byte::<0x0b, 0x06>(&[joybus_rs::commands::POLL_SIGNAL]) };
-        _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
-        let _ = match unsafe { read_bytes::<0x9, 0x6, 0x26, 0x15, 1>(&mut data) } {
+        let _ = match reader_pin.read_write(&[joybus_rs::commands::POLL_SIGNAL], &mut data) {
             Ok(b) => uwriteln!(serial, "(Stop-bit) Bytes are {:?} {:?}\r", b, data),
-            Err(ReadError::OutOfMemory(len)) => {
+            Err(JoybusError::OutOfMemory(len)) => {
                 uwriteln!(serial, "(No Stopbit) Bytes are {:?}: {:?}\r", len, data)
             }
             Err(e) => {

@@ -32,6 +32,12 @@ where
     ) -> Result<usize, joybus_rs::JoybusError> {
         self.pin
             .joybus_read(write_data, read_data)
-            .map_err(|_| joybus_rs::JoybusError::Timeout)
+            .map_err(|e| match e {
+                ReadError::OutOfMemory(bytes) => {
+                    joybus_rs::JoybusError::OutOfMemory(bytes as usize)
+                }
+                ReadError::Timeout(_) => joybus_rs::JoybusError::Timeout,
+                ReadError::UnknownError(_) => joybus_rs::JoybusError::ResponseMismatch,
+            })
     }
 }
