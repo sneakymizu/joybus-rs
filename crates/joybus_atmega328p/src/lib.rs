@@ -11,12 +11,11 @@ use ufmt::derive::uDebug;
 // 1µs is 16 clock cylces, 3µs is 48
 const BIT_COUNTER_INIT: u8 = 128u8;
 #[inline]
-pub unsafe fn send_byte<const PORT: u8, const PIN_NUMBER: u8, const BYTES: usize>(
-    bytes: [u8; BYTES],
-) {
+pub unsafe fn send_byte<const PORT: u8, const PIN_NUMBER: u8>(bytes: &[u8]) {
+    let bytes_to_send = bytes.len() as u8;
     let [high_addr, low_addr] = (bytes.as_ptr() as u16).to_be_bytes(); // 3c
     asm! {
-        "ldi {byte_counter} {bytes_to_send}",
+        "mov {byte_counter} {bytes_to_send}",
         "ldi {bit_counter} {bit_counter_init}",
         "ld {input} z+",
         "clz",
@@ -86,7 +85,7 @@ pub unsafe fn send_byte<const PORT: u8, const PIN_NUMBER: u8, const BYTES: usize
         tmp=out(reg) _,
         in("ZL") low_addr,
         in("ZH") high_addr,
-        bytes_to_send=const BYTES,
+        bytes_to_send=in(reg) bytes_to_send,
         bit_counter_init=const BIT_COUNTER_INIT,
         port=const PORT,
         pin=const PIN_NUMBER, // should be the same for port, ddr and pmsk
@@ -114,10 +113,10 @@ pub unsafe fn read_bytes<
     const TIMER_VALUE_REGISTER: u8,
     const TIMER_MATCH_REGISTER: u8,
     const TIMER_MATCH_NUMBER: u8,
-    const DATA_LEN: usize,
 >(
     data: &mut [u8],
 ) -> Result<u8, ReadError> {
+    let data_len = data.len() as u8;
     let [high_addr, low_addr] = (data.as_ptr() as u16).to_be_bytes(); // 3c
     let mut errors: u8;
     let mut bytes_read_or_additional_error_information = 0u8;
@@ -142,7 +141,7 @@ pub unsafe fn read_bytes<
         "st z+ {current_byte}", // 2c
         "inc {bytes_read}", // 1c
         "ldi {read_bit_position} {init_read_bit_position}", // 1c
-        "cpi {bytes_read} {data_len}", // 1c | ensure we're not reading beyond our memory
+        "cp {bytes_read} {data_len}", // 1c | ensure we're not reading beyond our memory
         "breq 99f", // 1c/2c | exit on out of memory
         "ld {current_byte} z", // 2c | else load byte
         // about 8 cycles since timer check.
@@ -194,7 +193,7 @@ pub unsafe fn read_bytes<
         timer_counter_register=const TIMER_VALUE_REGISTER,
         timer_match_register=const TIMER_MATCH_REGISTER,
         timer_match_position=const TIMER_MATCH_NUMBER,
-        data_len=const DATA_LEN,
+        data_len=in(reg) data_len,
         init_read_bit_position=const INIT_READ_BIT_POSITION,
         in("ZL") low_addr,
         in("ZH") high_addr,
