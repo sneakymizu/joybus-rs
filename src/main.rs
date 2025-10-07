@@ -38,18 +38,16 @@ fn main() -> ! {
     pins.d9.into_output(); // oc1a is pb1, which is d9 on arduino nano - setting high for pwm output
 
     led_pin.set_low();
-    const DATA_LEN: usize = 4;
-    let mut data = [0u8; DATA_LEN];
     let mut currently_selected_note: Option<BaseNote>;
-    let mut n64_controller_state: JoybusControllerState;
+    let mut n64_controller_state = JoybusControllerState::default();
     let mut vibrato_counter: i8 = 0;
     let mut vibrato_count_direction = 1i8;
     const VIBRATO_MARGIN: i8 = 4;
     loop {
-        n64_controller_state = match reader_pin.read_contoller_state(&mut data) {
-            Ok(b) => b,
+         match reader_pin.read_contoller_state(&mut n64_controller_state) {
+            Ok(_) => (),
             Err(JoybusError::OutOfMemory(len)) => {
-                let _ = uwriteln!(serial, "(No Stopbit) Bytes are {:?}: {:?}\r", len, data);
+                let _ = uwriteln!(serial, "(No Stopbit) Bytes are {:?}: {:?}\r", len, n64_controller_state);
                 continue;
             }
             Err(e) => {

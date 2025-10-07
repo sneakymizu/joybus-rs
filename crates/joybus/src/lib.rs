@@ -15,27 +15,25 @@ pub trait JoybusConsole {
 impl<T: JoybusConsole> JoybusConsoleExt for T{}
 pub trait JoybusConsoleExt: JoybusConsole {
     fn read_contoller_state_alloc(&mut self) -> Result<JoybusControllerState, JoybusError> {
-        let mut data = [0u8; 4];
-        self.read_contoller_state(&mut data)
+        let mut data = JoybusControllerState([0u8; 4]);
+        self.read_contoller_state(&mut data)?;
+        Ok(data)
     }
     fn read_contoller_state(
         &mut self,
-        data: &mut [u8],
-    ) -> Result<JoybusControllerState, JoybusError> {
-        let res = self.read_write(&[commands::POLL_SIGNAL], data)?;
+        data: &mut JoybusControllerState,
+    ) -> Result<(), JoybusError> {
+        let res = self.read_write(&[commands::POLL_SIGNAL], &mut data.0)?;
         if res != 4 {
             Err(JoybusError::ResponseMismatch)
         } else {
-            let data: [u8; 4] = data
-                .as_ref()
-                .try_into()
-                .map_err(|_| JoybusError::ResponseMismatch)?;
-            Ok(JoybusControllerState::from(data))
+            Ok(())
         }
     }
 }
 
 
+#[derive(Default, uDebug)]
 pub struct JoybusControllerState([u8; 4]);
 impl From<[u8; 4]> for JoybusControllerState {
     fn from(value: [u8; 4]) -> Self {
