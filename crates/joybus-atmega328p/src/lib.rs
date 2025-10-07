@@ -4,8 +4,9 @@
 #![feature(asm_const)]
 
 #[cfg(feature = "joybus")]
-mod joybus_impl;
+mod joybus;
 use core::arch::asm;
+pub use joybus::new_console;
 use ufmt::derive::uDebug;
 
 // assumes the given port is configured as output

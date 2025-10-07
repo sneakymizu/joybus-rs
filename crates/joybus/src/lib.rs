@@ -5,12 +5,8 @@ pub enum JoybusError {
     ResponseMismatch,
 }
 pub trait JoybusConsole {
-    fn read<const COMMAND: u8>(&mut self, data: &mut [u8]) -> Result<usize, JoybusError>;
-    fn write<const COMMAND: u8>(
-        &mut self,
-        write_data: &[u8],
-        read_data: &mut [u8],
-    ) -> Result<usize, JoybusError>;
+    fn read_write(&mut self, write_data: &[u8], read_data: &mut [u8])
+        -> Result<usize, JoybusError>;
 }
 pub trait JoybusConsoleExt: JoybusConsole {
     fn read_contoller_state_alloc(&mut self) -> Result<JoybusControllerState, JoybusError> {
@@ -21,7 +17,7 @@ pub trait JoybusConsoleExt: JoybusConsole {
         &mut self,
         data: &mut [u8],
     ) -> Result<JoybusControllerState, JoybusError> {
-        let res = self.read::<{ commands::POLL_SIGNAL }>(data)?;
+        let res = self.read_write(&[commands::POLL_SIGNAL], data)?;
         if res != 4 {
             Err(JoybusError::ResponseMismatch)
         } else {
