@@ -12,6 +12,7 @@ pub trait JoybusConsole {
     fn read_write(&mut self, write_data: &[u8], read_data: &mut [u8])
         -> Result<usize, JoybusError>;
 }
+impl<T: JoybusConsole> JoybusConsoleExt for T{}
 pub trait JoybusConsoleExt: JoybusConsole {
     fn read_contoller_state_alloc(&mut self) -> Result<JoybusControllerState, JoybusError> {
         let mut data = [0u8; 4];
@@ -33,6 +34,7 @@ pub trait JoybusConsoleExt: JoybusConsole {
         }
     }
 }
+
 
 pub struct JoybusControllerState([u8; 4]);
 impl From<[u8; 4]> for JoybusControllerState {

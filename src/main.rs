@@ -11,7 +11,7 @@ use ufmt::{derive::uDebug, uwriteln};
 
 use joybus_rs_atmega328p::new_console;
 
-use joybus_rs::{JoybusConsole, JoybusControllerState, JoybusError};
+use joybus_rs::{JoybusConsole, JoybusConsoleExt, JoybusControllerState, JoybusError};
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -46,10 +46,11 @@ fn main() -> ! {
     let mut vibrato_count_direction = 1i8;
     const VIBRATO_MARGIN: i8 = 4;
     loop {
-        let _ = match reader_pin.read_write(&[joybus_rs::commands::POLL_SIGNAL], &mut data) {
-            Ok(b) => uwriteln!(serial, "(Stop-bit) Bytes are {:?} {:?}\r", b, data),
+        n64_controller_state = match reader_pin.read_contoller_state(&mut data) {
+            Ok(b) => b,
             Err(JoybusError::OutOfMemory(len)) => {
-                uwriteln!(serial, "(No Stopbit) Bytes are {:?}: {:?}\r", len, data)
+                let _ = uwriteln!(serial, "(No Stopbit) Bytes are {:?}: {:?}\r", len, data);
+                continue;
             }
             Err(e) => {
                 let _ = uwriteln!(serial, "Got error {:?}\r", e);
@@ -57,7 +58,6 @@ fn main() -> ! {
             }
         };
 
-        n64_controller_state = data.into();
         let note_selection: BaseNoteSelection = (&n64_controller_state).into();
         let note: Result<BaseNote, u8> = note_selection.try_into();
         currently_selected_note = match note {
