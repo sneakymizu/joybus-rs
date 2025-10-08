@@ -44,11 +44,15 @@ fn main() -> ! {
     let mut vibrato_count_direction = 1i8;
     const VIBRATO_MARGIN: i8 = 4;
     loop {
-         match reader_pin.read_contoller_state(&mut n64_controller_state) {
+        match reader_pin.read_contoller_state(&mut n64_controller_state) {
             Ok(_) => (),
             Err(JoybusError::OutOfMemory(len)) => {
-                let _ = uwriteln!(serial, "(No Stopbit) Bytes are {:?}: {:?}\r", len, n64_controller_state);
-                continue;
+                let _ = uwriteln!(
+                    serial,
+                    "(No Stopbit) Bytes are {:?}: {:?}\r",
+                    len,
+                    n64_controller_state
+                );
             }
             Err(e) => {
                 let _ = uwriteln!(serial, "Got error {:?}\r", e);
