@@ -11,7 +11,7 @@ use ufmt::{derive::uDebug, uwriteln};
 
 use joybus_rs_atmega328p::new_console;
 
-use joybus_rs::{JoybusConsole, JoybusConsoleExt, JoybusControllerState, JoybusError};
+use joybus_rs::{JoybusConsoleExt, JoybusControllerState, JoybusError};
 
 #[arduino_hal::entry]
 fn main() -> ! {
