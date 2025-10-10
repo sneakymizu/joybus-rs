@@ -169,11 +169,11 @@ impl Sub<i8> for EqualTemperateNoteOffset {
 
 #[derive(uDebug, Clone, Copy)]
 enum BaseNote {
-    D1,
-    F1,
-    A2,
-    B2,
-    D2,
+    D5,
+    F5,
+    A5,
+    B5,
+    D6,
 }
 #[derive(uDebug)]
 struct BaseNoteSelection {
@@ -189,11 +189,11 @@ impl BitAnd<u8> for BaseNoteSelection {
 }
 impl From<&N64ControllerState> for BaseNoteSelection {
     fn from(value: &N64ControllerState) -> Self {
-        let note_selections = (value.c_right() as u8) << BaseNote::A2 as u8
-            | (value.c_left() as u8) << BaseNote::B2 as u8
-            | (value.a_button() as u8) << BaseNote::D1 as u8
-            | (value.c_down() as u8) << BaseNote::F1 as u8
-            | (value.c_up() as u8) << BaseNote::D2 as u8;
+        let note_selections = (value.c_right() as u8) << BaseNote::A5 as u8
+            | (value.c_left() as u8) << BaseNote::B5 as u8
+            | (value.a_button() as u8) << BaseNote::D5 as u8
+            | (value.c_down() as u8) << BaseNote::F5 as u8
+            | (value.c_up() as u8) << BaseNote::D6 as u8;
         Self {
             selection: note_selections,
         }
@@ -205,16 +205,16 @@ impl TryFrom<BaseNoteSelection> for BaseNote {
         let ones = value.selection.count_ones() as u8;
         if ones > 1 {
             Err(ones)
-        } else if value.selection & (1 << BaseNote::A2 as u8) > 0 {
-            Ok(BaseNote::A2)
-        } else if value.selection & (1 << BaseNote::D1 as u8) > 0 {
-            Ok(BaseNote::D1)
-        } else if value.selection & (1 << BaseNote::B2 as u8) > 0 {
-            Ok(BaseNote::B2)
-        } else if value.selection & (1 << BaseNote::F1 as u8) > 0 {
-            Ok(BaseNote::F1)
-        } else if value.selection & (1 << BaseNote::D2 as u8) > 0 {
-            Ok(BaseNote::D2)
+        } else if value.selection & (1 << BaseNote::A5 as u8) > 0 {
+            Ok(BaseNote::A5)
+        } else if value.selection & (1 << BaseNote::D5 as u8) > 0 {
+            Ok(BaseNote::D5)
+        } else if value.selection & (1 << BaseNote::B5 as u8) > 0 {
+            Ok(BaseNote::B5)
+        } else if value.selection & (1 << BaseNote::F5 as u8) > 0 {
+            Ok(BaseNote::F5)
+        } else if value.selection & (1 << BaseNote::D6 as u8) > 0 {
+            Ok(BaseNote::D6)
         } else {
             Err(0)
         }
@@ -222,13 +222,14 @@ impl TryFrom<BaseNoteSelection> for BaseNote {
 }
 impl From<BaseNote> for EqualTemperateNoteOffset {
     fn from(value: BaseNote) -> Self {
-        match value {
-            BaseNote::A2 => Self { power: 0 },
-            BaseNote::B2 => Self { power: 2 },
-            BaseNote::D2 => Self { power: 5 },
-            BaseNote::D1 => Self { power: -7 },
-            BaseNote::F1 => Self { power: -4 },
-        }
+        let note = match value {
+            BaseNote::A5 => Self { power: 0 },
+            BaseNote::B5 => Self { power: 2 },
+            BaseNote::D6 => Self { power: 5 },
+            BaseNote::D5 => Self { power: -7 },
+            BaseNote::F5 => Self { power: -4 },
+        };
+        note + 12
     }
 }
 
