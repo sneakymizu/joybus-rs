@@ -17,7 +17,6 @@ panic-halt.workspace = true
 ufmt.workspace = true
 embedded-hal.workspace = true
 arduino-hal.workspace = true
-avr-device.workspace = true
 joybus-rs-atmega328p.workspace = true
 joybus-rs.workspace = true
 
@@ -26,7 +25,6 @@ panic-halt = "0.2.0"
 ufmt = "0.2.0"
 embedded-hal = "1"
 arduino-hal = { git = "https://github.com/Rahix/avr-hal.git", rev="ravedude-0.1.8", features = ["arduino-nano"]}
-avr-device = "0.5"
 joybus-rs-atmega328p = {path="crates/joybus-atmega328p"}
 joybus-rs = {path="crates/joybus"}
 

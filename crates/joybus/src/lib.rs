@@ -1,8 +1,9 @@
 #![no_std]
 
+#[cfg(feature = "print_error")]
 use ufmt::derive::uDebug;
 
-#[derive(uDebug)]
+#[cfg_attr(feature = "print_error", derive(uDebug))]
 pub enum JoybusError {
     Timeout,
     ResponseMismatch,
@@ -12,7 +13,7 @@ pub trait JoybusConsole {
     fn read_write(&mut self, write_data: &[u8], read_data: &mut [u8])
         -> Result<usize, JoybusError>;
 }
-impl<T: JoybusConsole> JoybusConsoleExt for T{}
+impl<T: JoybusConsole> JoybusConsoleExt for T {}
 pub trait JoybusConsoleExt: JoybusConsole {
     fn read_contoller_state_alloc(&mut self) -> Result<JoybusControllerState, JoybusError> {
         let mut data = JoybusControllerState([0u8; 4]);
@@ -32,8 +33,8 @@ pub trait JoybusConsoleExt: JoybusConsole {
     }
 }
 
-
-#[derive(Default, uDebug)]
+#[derive(Default)]
+#[cfg_attr(feature = "print_error", derive(uDebug))]
 pub struct JoybusControllerState([u8; 4]);
 impl From<[u8; 4]> for JoybusControllerState {
     fn from(value: [u8; 4]) -> Self {

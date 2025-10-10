@@ -4,13 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ufmt.workspace = true
+ufmt = {workspace = true, optional=true}
 joybus-rs = {workspace = true, optional=true}
 arduino-hal = {workspace = true, optional=true}
 
 [features]
 default=["joybus"]
-joybus=["dep:joybus-rs","arduino-hal"]
+joybus=["dep:joybus-rs","dep:arduino-hal"]
+print_error=["dep:ufmt"]
 
 [lib]
 test = false

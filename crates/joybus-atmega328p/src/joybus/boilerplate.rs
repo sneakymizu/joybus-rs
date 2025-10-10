@@ -1,9 +1,8 @@
+use crate::{joybus::JoybusPinRead, read_bytes, send_byte, ReadError};
 use arduino_hal::port::{
     mode::{Floating, Input},
     Pin, PinOps,
 };
-
-use crate::{joybus::JoybusPinRead, read_bytes, send_byte, ReadError};
 
 pub type JoybusPinWrapping<PIN> = Pin<Input<Floating>, PIN>;
 pub(super) struct JoybusPinWrapper<PIN: PinOps> {

@@ -4,7 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ufmt = {workspace=true}
+ufmt = {workspace=true, optional=true}
+
+[features]
+default=["print_error"]
+print_error=["dep:ufmt"]
 
 [lib]
 test=false
