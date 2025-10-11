@@ -12,7 +12,7 @@ trait JoybusPinRead {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError>;
 }
 
-trait TimerConfigurator<TIMER> {
+trait TimerConfigurator {
     fn configure(&mut self);
 }
 pub struct JoybusPin<PIN: PinOps, TIMER> {
@@ -25,7 +25,7 @@ pub fn new_console<PIN: PinOps, TIMER>(
     mut timer: TIMER,
 ) -> JoybusPin<PIN, TIMER>
 where
-    TIMER: TimerConfigurator<TIMER>, // this trait should only be implemented internally, so this should only check against internal implementations
+    TIMER: TimerConfigurator, // this trait should only be implemented internally, so this should only check against internal implementations
 {
     timer.configure();
     JoybusPin {
@@ -33,7 +33,7 @@ where
     }
 }
 
-impl<TIMER> TimerConfigurator<TIMER> for ::arduino_hal::pac::TC0 {
+impl TimerConfigurator for ::arduino_hal::pac::TC0 {
     fn configure(&mut self) {
         // setup timer for joybus readings
         // normal operating timer
