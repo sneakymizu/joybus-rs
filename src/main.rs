@@ -17,9 +17,7 @@ use joybus_rs::{JoybusConsoleExt, JoybusControllerState, JoybusError};
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let timer = dp.TC0;
-    // normal operating timer
-    timer.tccr0a.reset();
-    timer.tccr0b.write(|w| w.cs0().direct()); // no prescale, normal timer operation
+
     let pwm_sound_driver = dp.TC1;
     pwm_sound_driver
         .tccr1a
@@ -34,7 +32,7 @@ fn main() -> ! {
     led_pin.set_high();
 
     let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
-    let mut reader_pin = new_console(pins.d6);
+    let mut reader_pin = new_console(pins.d6, timer);
     pins.d9.into_output(); // oc1a is pb1, which is d9 on arduino nano - setting high for pwm output
 
     led_pin.set_low();

@@ -5,17 +5,23 @@ use arduino_hal::port::{
 };
 
 pub type JoybusPinWrapping<PIN> = Pin<Input<Floating>, PIN>;
-pub(super) struct JoybusPinWrapper<PIN: PinOps> {
+pub(super) struct JoybusPinWrapper<PIN: PinOps, TIMER> {
     input: Option<Pin<Input<Floating>, PIN>>,
+    _timer: TIMER, // own a timer here to better constrain the timer usage, making the unsafe code safer
 }
-impl<PIN: PinOps> JoybusPinWrapper<PIN> {
-    pub fn from_pin(pin: Pin<Input<Floating>, PIN>) -> Self {
-        Self { input: Some(pin) }
+impl<PIN: PinOps, TIMER> JoybusPinWrapper<PIN, TIMER> {
+    pub fn from_pin_and_timer(pin: Pin<Input<Floating>, PIN>, timer: TIMER) -> Self {
+        Self {
+            input: Some(pin),
+            _timer: timer,
+        }
     }
 }
 
 // PORTB
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PB0> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PB0, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x05, 0x00>(send) };
@@ -23,7 +29,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PB0> {
         unsafe { read_bytes::<0x03, 0x00, 0x26, 0x15, 1>(recv) }.map(|v| v as usize)
     }
 }
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PB1> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PB1, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x05, 0x01>(send) };
@@ -31,7 +39,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PB1> {
         unsafe { read_bytes::<0x03, 0x01, 0x26, 0x15, 1>(recv) }.map(|v| v as usize)
     }
 }
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PB2> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PB2, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x05, 0x02>(send) };
@@ -40,7 +50,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PB2> {
     }
 }
 
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PB3> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PB3, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x05, 0x03>(send) };
@@ -49,7 +61,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PB3> {
     }
 }
 
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PB4> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PB4, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x05, 0x04>(send) };
@@ -58,7 +72,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PB4> {
     }
 }
 
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PB5> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PB5, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x05, 0x05>(send) };
@@ -67,7 +83,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PB5> {
     }
 }
 
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PB6> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PB6, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x05, 0x06>(send) };
@@ -75,7 +93,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PB6> {
         unsafe { read_bytes::<0x03, 0x06, 0x26, 0x15, 1>(recv) }.map(|v| v as usize)
     }
 }
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PB7> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PB7, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x05, 0x07>(send) };
@@ -85,7 +105,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PB7> {
 }
 
 // PORTC
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PC0> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PC0, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x08, 0x00>(send) };
@@ -93,7 +115,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PC0> {
         unsafe { read_bytes::<0x6, 0x00, 0x26, 0x15, 1>(recv) }.map(|v| v as usize)
     }
 }
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PC1> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PC1, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x08, 0x01>(send) };
@@ -101,7 +125,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PC1> {
         unsafe { read_bytes::<0x6, 0x01, 0x26, 0x15, 1>(recv) }.map(|v| v as usize)
     }
 }
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PC2> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PC2, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x08, 0x02>(send) };
@@ -110,7 +136,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PC2> {
     }
 }
 
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PC3> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PC3, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x08, 0x03>(send) };
@@ -119,7 +147,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PC3> {
     }
 }
 
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PC4> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PC4, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x08, 0x04>(send) };
@@ -128,7 +158,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PC4> {
     }
 }
 
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PC5> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PC5, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x08, 0x05>(send) };
@@ -137,7 +169,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PC5> {
     }
 }
 
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PC6> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PC6, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x08, 0x06>(send) };
@@ -147,7 +181,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PC6> {
 }
 
 // PORTD
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PD0> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PD0, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x0b, 0x00>(send) };
@@ -155,7 +191,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PD0> {
         unsafe { read_bytes::<0x9, 0x00, 0x26, 0x15, 1>(recv) }.map(|v| v as usize)
     }
 }
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PD1> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PD1, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x0b, 0x01>(send) };
@@ -163,7 +201,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PD1> {
         unsafe { read_bytes::<0x9, 0x01, 0x26, 0x15, 1>(recv) }.map(|v| v as usize)
     }
 }
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PD2> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PD2, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x0b, 0x02>(send) };
@@ -172,7 +212,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PD2> {
     }
 }
 
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PD3> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PD3, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x0b, 0x03>(send) };
@@ -181,7 +223,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PD3> {
     }
 }
 
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PD4> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PD4, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x0b, 0x04>(send) };
@@ -190,7 +234,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PD4> {
     }
 }
 
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PD5> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PD5, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x0b, 0x05>(send) };
@@ -199,7 +245,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PD5> {
     }
 }
 
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PD6> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PD6, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x0b, 0x06>(send) };
@@ -207,7 +255,9 @@ impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PD6> {
         unsafe { read_bytes::<0x9, 0x06, 0x26, 0x15, 1>(recv) }.map(|v| v as usize)
     }
 }
-impl JoybusPinRead for JoybusPinWrapper<::arduino_hal::hal::port::PD7> {
+impl JoybusPinRead
+    for JoybusPinWrapper<::arduino_hal::hal::port::PD7, ::arduino_hal::hal::pac::TC0>
+{
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
         unsafe { send_byte::<0x0b, 0x07>(send) };
