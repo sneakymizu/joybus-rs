@@ -7,11 +7,6 @@ pub(super) trait JoybusPinRead {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError>;
 }
 
-/// Internal trait to define how the joybus reader wants the timer to be configured.
-pub(super) trait TimerConfigurator {
-    fn configure(&mut self);
-}
-
 pub(super) struct JoybusPinWrapper<PIN: PinOps, TIMER> {
     input: Option<AvrPinDefinition<PIN>>,
     _timer: TIMER, // own a timer here to better constrain the timer usage, making the unsafe code safer

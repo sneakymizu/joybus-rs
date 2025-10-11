@@ -13,3 +13,6 @@ use ufmt::derive::uDebug;
 
 mod protocol;
 pub use protocol::{read_bytes, send_byte, ReadError};
+
+mod timer;
+pub use timer::TimerConfigurator;
