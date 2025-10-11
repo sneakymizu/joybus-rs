@@ -1,27 +1,22 @@
-use arduino_hal::port::PinOps;
+use arduino_hal::port::{
+    mode::{Floating, Input},
+    Pin, PinOps,
+};
 use joybus_rs::JoybusConsole;
 
-use crate::{
-    joybus::boilerplate::{JoybusPinWrapper, JoybusPinWrapping},
-    ReadError,
-};
-
+use crate::ReadError;
 mod boilerplate;
+use boilerplate::{JoybusPinRead, JoybusPinWrapper, TimerConfigurator};
 
-trait JoybusPinRead {
-    fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError>;
-}
+pub(crate) type AvrPinDefinition<PIN> = Pin<Input<Floating>, PIN>;
 
-trait TimerConfigurator {
-    fn configure(&mut self);
-}
 pub struct JoybusPin<PIN: PinOps, TIMER> {
     pin: JoybusPinWrapper<PIN, TIMER>,
 }
 
 #[allow(private_bounds)]
 pub fn new_console<PIN: PinOps, TIMER>(
-    pin: JoybusPinWrapping<PIN>,
+    pin: AvrPinDefinition<PIN>,
     mut timer: TIMER,
 ) -> JoybusPin<PIN, TIMER>
 where
