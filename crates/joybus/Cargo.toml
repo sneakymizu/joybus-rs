@@ -7,8 +7,8 @@ edition = "2021"
 ufmt = {workspace=true, optional=true}
 
 [features]
-default=["print_error"]
-print_error=["dep:ufmt"]
+default=["ufmt"]
+ufmt=["dep:ufmt"]
 
 [lib]
 test=false

@@ -1,9 +1,9 @@
 #![no_std]
 
-#[cfg(feature = "print_error")]
+#[cfg(feature = "ufmt")]
 use ufmt::derive::uDebug;
 
-#[cfg_attr(feature = "print_error", derive(uDebug))]
+#[cfg_attr(feature = "ufmt", derive(uDebug))]
 pub enum JoybusError {
     Timeout,
     ResponseMismatch,
@@ -34,7 +34,7 @@ pub trait JoybusConsoleExt: JoybusConsole {
 }
 
 #[derive(Default)]
-#[cfg_attr(feature = "print_error", derive(uDebug))]
+#[cfg_attr(feature = "ufmt", derive(uDebug))]
 pub struct JoybusControllerState([u8; 4]);
 impl From<[u8; 4]> for JoybusControllerState {
     fn from(value: [u8; 4]) -> Self {

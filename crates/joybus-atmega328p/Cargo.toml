@@ -11,7 +11,7 @@ arduino-hal = {workspace = true, optional=true}
 [features]
 default=["joybus"]
 joybus=["dep:joybus-rs","dep:arduino-hal"]
-print_error=["dep:ufmt"]
+ufmt=["dep:ufmt"]
 
 [lib]
 test = false

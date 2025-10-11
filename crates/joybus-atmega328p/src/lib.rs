@@ -9,7 +9,7 @@ mod joybus;
 pub use joybus::new_console;
 
 use core::arch::asm;
-#[cfg(feature = "print_error")]
+#[cfg(feature = "ufmt")]
 use ufmt::derive::uDebug;
 
 // assumes the given port is configured as output
@@ -98,7 +98,7 @@ pub unsafe fn send_byte<const PORT: u8, const PIN_NUMBER: u8>(bytes: &[u8]) {
     }
 }
 
-#[cfg_attr(feature = "print_error", derive(uDebug))]
+#[cfg_attr(feature = "ufmt", derive(uDebug))]
 pub enum ReadError {
     OutOfMemory(u8),
     Timeout(u8),
