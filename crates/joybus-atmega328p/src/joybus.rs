@@ -19,7 +19,7 @@ pub fn new_console<PIN: PinOps, TIMER>(
     mut timer: TIMER,
 ) -> JoybusPin<PIN, TIMER>
 where
-    TIMER: TimerConfigurator, // this trait should only be implemented internally, so this should only check against internal implementations
+    TIMER: TimerConfigurator,
 {
     timer.configure_direct();
     JoybusPin {
