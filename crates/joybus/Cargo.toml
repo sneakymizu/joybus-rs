@@ -1,0 +1,14 @@
+[package]
+name = "joybus-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ufmt = {workspace=true, optional=true}
+
+[features]
+default=["ufmt"]
+ufmt=["dep:ufmt"]
+
+[lib]
+test=false

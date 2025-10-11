@@ -1,10 +1,4 @@
-#![no_std]
-#![no_main]
-#![feature(asm_experimental_arch)]
-#![feature(asm_const)]
-
 use core::arch::asm;
-use ufmt::derive::uDebug;
 
 // assumes the given port is configured as output
 // designed for atmega running with 16MHz clock
@@ -91,7 +85,8 @@ pub unsafe fn send_byte<const PORT: u8, const PIN_NUMBER: u8>(bytes: &[u8]) {
         pin=const PIN_NUMBER, // should be the same for port, ddr and pmsk
     }
 }
-#[derive(uDebug)]
+
+#[cfg_attr(feature = "ufmt", derive(uDebug))]
 pub enum ReadError {
     OutOfMemory(u8),
     Timeout(u8),
@@ -99,7 +94,6 @@ pub enum ReadError {
 }
 
 // each loop for pin check might exit with 4~5 cycles wasted & third party controllers aren't too specific about timing so this expects more than "stopbit"-low
-
 // seemingly perfect stop bit timing alignment with loading timer value is 33 cycles. So taking the 32 low cycles for stop bit + 4~5 misalignment cycles should be greater or equal to ~37
 const MINIMUM_LOW_CYCLES_FOR_0: u8 = 37;
 // 16+5 cycles, compares against lower

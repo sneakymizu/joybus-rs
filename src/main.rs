@@ -9,36 +9,15 @@ use arduino_hal::clock::Clock;
 use panic_halt as _;
 use ufmt::{derive::uDebug, uwriteln};
 
-use joybus_atmega328p::{read_bytes, send_byte, ReadError};
+use joybus_rs_atmega328p::new_console;
 
-use joybus_types::N64ControllerState;
-
-enum Either<L, R> {
-    Left(L),
-    Right(R),
-}
-impl<L, R> Either<L, R> {
-    fn left(self) -> L {
-        match self {
-            Either::Left(l) => l,
-            Either::Right(_r) => panic!(),
-        }
-    }
-    fn right(self) -> R {
-        match self {
-            Either::Left(_l) => panic!(),
-            Either::Right(r) => r,
-        }
-    }
-}
+use joybus_rs::{JoybusConsoleExt, JoybusControllerState, JoybusError};
 
 #[arduino_hal::entry]
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let timer = dp.TC0;
-    // normal operating timer
-    timer.tccr0a.reset();
-    timer.tccr0b.write(|w| w.cs0().direct()); // no prescale, normal timer operation
+
     let pwm_sound_driver = dp.TC1;
     pwm_sound_driver
         .tccr1a
@@ -53,26 +32,25 @@ fn main() -> ! {
     led_pin.set_high();
 
     let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
-    let mut _reader_pin = Either::Left(pins.d6.into_output_high().downgrade());
+    let mut reader_pin = new_console(pins.d6, timer);
     pins.d9.into_output(); // oc1a is pb1, which is d9 on arduino nano - setting high for pwm output
 
     led_pin.set_low();
-    _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
-    const DATA_LEN: usize = 4;
-    let mut data = [0u8; DATA_LEN];
     let mut currently_selected_note: Option<BaseNote>;
-    let mut n64_controller_state: N64ControllerState;
+    let mut n64_controller_state = JoybusControllerState::default();
     let mut vibrato_counter: i8 = 0;
     let mut vibrato_count_direction = 1i8;
     const VIBRATO_MARGIN: i8 = 4;
     loop {
-        _reader_pin = Either::Left(_reader_pin.right().into_output_high());
-        unsafe { send_byte::<0x0b, 0x06>(&[joybus_types::commands::POLL_SIGNAL]) };
-        _reader_pin = Either::Right(_reader_pin.left().into_pull_up_input());
-        let _ = match unsafe { read_bytes::<0x9, 0x6, 0x26, 0x15, 1>(&mut data) } {
-            Ok(b) => uwriteln!(serial, "(Stop-bit) Bytes are {:?} {:?}\r", b, data),
-            Err(ReadError::OutOfMemory(len)) => {
-                uwriteln!(serial, "(No Stopbit) Bytes are {:?}: {:?}\r", len, data)
+        match reader_pin.read_contoller_state(&mut n64_controller_state) {
+            Ok(_) => (),
+            Err(JoybusError::OutOfMemory(len)) => {
+                let _ = uwriteln!(
+                    serial,
+                    "(No Stopbit) Bytes are {:?}: {:?}\r",
+                    len,
+                    n64_controller_state
+                );
             }
             Err(e) => {
                 let _ = uwriteln!(serial, "Got error {:?}\r", e);
@@ -80,7 +58,6 @@ fn main() -> ! {
             }
         };
 
-        n64_controller_state = data.into();
         let note_selection: BaseNoteSelection = (&n64_controller_state).into();
         let note: Result<BaseNote, u8> = note_selection.try_into();
         currently_selected_note = match note {
@@ -187,8 +164,8 @@ impl BitAnd<u8> for BaseNoteSelection {
         self.selection & rhs
     }
 }
-impl From<&N64ControllerState> for BaseNoteSelection {
-    fn from(value: &N64ControllerState) -> Self {
+impl From<&JoybusControllerState> for BaseNoteSelection {
+    fn from(value: &JoybusControllerState) -> Self {
         let note_selections = (value.c_right() as u8) << BaseNote::A5 as u8
             | (value.c_left() as u8) << BaseNote::B5 as u8
             | (value.a_button() as u8) << BaseNote::D5 as u8

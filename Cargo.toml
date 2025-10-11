@@ -13,13 +13,20 @@ test = false
 bench = false
 
 [dependencies]
+panic-halt.workspace = true
+ufmt.workspace = true
+embedded-hal.workspace = true
+arduino-hal.workspace = true
+joybus-rs-atmega328p.workspace = true
+joybus-rs.workspace = true
+
+[workspace.dependencies]
 panic-halt = "0.2.0"
 ufmt = "0.2.0"
-embedded-hal = "0.2"
+embedded-hal = "1"
 arduino-hal = { git = "https://github.com/Rahix/avr-hal.git", rev="ravedude-0.1.8", features = ["arduino-nano"]}
-avr-device = "0.5"
-joybus_atmega328p = {path="crates/joybus_atmega328p"}
-joybus_types = {path="crates/joybus_types"}
+joybus-rs-atmega328p = {path="crates/joybus-atmega328p"}
+joybus-rs = {path="crates/joybus"}
 
 [profile.dev]
 panic = "abort"

@@ -1,17 +1,53 @@
 #![no_std]
 
-pub struct N64ControllerState([u8; 4]);
-impl From<[u8; 4]> for N64ControllerState {
+#[cfg(feature = "ufmt")]
+use ufmt::derive::uDebug;
+
+#[cfg_attr(feature = "ufmt", derive(uDebug))]
+pub enum JoybusError {
+    Timeout,
+    ResponseMismatch,
+    OutOfMemory(usize),
+    ImplementationReportsError(usize),
+}
+pub trait JoybusConsole {
+    fn read_write(&mut self, write_data: &[u8], read_data: &mut [u8])
+        -> Result<usize, JoybusError>;
+}
+impl<T: JoybusConsole> JoybusConsoleExt for T {}
+pub trait JoybusConsoleExt: JoybusConsole {
+    fn read_contoller_state_alloc(&mut self) -> Result<JoybusControllerState, JoybusError> {
+        let mut data = JoybusControllerState([0u8; 4]);
+        self.read_contoller_state(&mut data)?;
+        Ok(data)
+    }
+    fn read_contoller_state(
+        &mut self,
+        data: &mut JoybusControllerState,
+    ) -> Result<(), JoybusError> {
+        let res = self.read_write(&[commands::POLL_SIGNAL], &mut data.0)?;
+        if res != 4 {
+            Err(JoybusError::ResponseMismatch)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[derive(Default)]
+#[cfg_attr(feature = "ufmt", derive(uDebug))]
+pub struct JoybusControllerState([u8; 4]);
+impl From<[u8; 4]> for JoybusControllerState {
     fn from(value: [u8; 4]) -> Self {
-        N64ControllerState(value)
+        JoybusControllerState(value)
     }
 }
-impl From<u32> for N64ControllerState {
+impl From<u32> for JoybusControllerState {
     fn from(value: u32) -> Self {
-        N64ControllerState(value.to_le_bytes())
+        JoybusControllerState(value.to_le_bytes())
     }
 }
-impl N64ControllerState {
+impl JoybusControllerState {
     pub fn a_button(&self) -> bool {
         (self.0[0] & 128u8) != 0
     }
