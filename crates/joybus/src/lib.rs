@@ -8,6 +8,7 @@ pub enum JoybusError {
     Timeout,
     ResponseMismatch,
     OutOfMemory(usize),
+    ImplementationReportsError(usize),
 }
 pub trait JoybusConsole {
     fn read_write(&mut self, write_data: &[u8], read_data: &mut [u8])

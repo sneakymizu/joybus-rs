@@ -43,7 +43,9 @@ where
                     joybus_rs::JoybusError::OutOfMemory(bytes as usize)
                 }
                 ReadError::Timeout(_) => joybus_rs::JoybusError::Timeout,
-                ReadError::UnknownError(_) => joybus_rs::JoybusError::ResponseMismatch,
+                ReadError::UnknownError(error_value) => {
+                    joybus_rs::JoybusError::ImplementationReportsError(error_value as usize)
+                }
             })
     }
 }
