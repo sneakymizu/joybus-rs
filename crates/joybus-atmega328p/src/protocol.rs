@@ -135,8 +135,6 @@ pub unsafe fn read_bytes<
         "st z+ {current_byte}", // 2c
         "inc {bytes_read}", // 1c
         "ldi {read_bit_position} {init_read_bit_position}", // 1c
-        "cp {bytes_read} {data_len}", // 1c | ensure we're not reading beyond our memory
-        "breq 99f", // 1c/2c | exit on out of memory
         "ld {current_byte} z", // 2c | else load byte
         // about 8 cycles since timer check.
         // end of the stuff that might be tricky to do
@@ -155,12 +153,16 @@ pub unsafe fn read_bytes<
         "rjmp 100f",  // not high, not low, prolly controller stop bit...
         // store time sample
         "0:",
+            "cp {bytes_read} {data_len}", // 1c | ensure we're not reading beyond our memory
+            "breq 99f", // 1c/2c | exit on out of memory
             "com {read_bit_position}",
             "and {current_byte} {read_bit_position}", // unset bit at read-bit-position
             "com {read_bit_position}",
             "lsr {read_bit_position}",
             "rjmp 2b",
         "1:",
+            "cp {bytes_read} {data_len}", // 1c | ensure we're not reading beyond our memory
+            "breq 99f", // 1c/2c | exit on out of memory
             "or {current_byte} {read_bit_position}",
             "lsr {read_bit_position}",
             "rjmp 2b",
