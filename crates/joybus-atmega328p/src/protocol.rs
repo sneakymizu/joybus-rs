@@ -5,7 +5,7 @@ use core::arch::asm;
 // 1µs is 16 clock cylces, 3µs is 48
 const BIT_COUNTER_INIT: u8 = 128u8;
 #[inline]
-pub unsafe fn send_byte<const PORT: u8, const PIN_NUMBER: u8>(bytes: &[u8]) {
+pub unsafe fn send_bytes<const PORT: u8, const PIN_NUMBER: u8>(bytes: &[u8]) {
     let bytes_to_send = bytes.len() as u8;
     let [high_addr, low_addr] = (bytes.as_ptr() as u16).to_be_bytes(); // 3c
     asm! {

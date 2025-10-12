@@ -1,5 +1,5 @@
 use super::AvrPinDefinition;
-use crate::{read_bytes, send_byte, ReadError};
+use crate::{read_bytes, send_bytes, ReadError};
 use arduino_hal::port::PinOps;
 
 /// Internal trait to define how a pin can read joybus information.
@@ -26,7 +26,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x05, 0x00>(send) };
+        unsafe { send_bytes::<0x05, 0x00>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x03, 0x00, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -36,7 +36,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x05, 0x01>(send) };
+        unsafe { send_bytes::<0x05, 0x01>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x03, 0x01, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -46,7 +46,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x05, 0x02>(send) };
+        unsafe { send_bytes::<0x05, 0x02>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x03, 0x02, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -57,7 +57,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x05, 0x03>(send) };
+        unsafe { send_bytes::<0x05, 0x03>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x03, 0x03, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -68,7 +68,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x05, 0x04>(send) };
+        unsafe { send_bytes::<0x05, 0x04>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x03, 0x04, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -79,7 +79,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x05, 0x05>(send) };
+        unsafe { send_bytes::<0x05, 0x05>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x03, 0x05, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -90,7 +90,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x05, 0x06>(send) };
+        unsafe { send_bytes::<0x05, 0x06>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x03, 0x06, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -100,7 +100,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x05, 0x07>(send) };
+        unsafe { send_bytes::<0x05, 0x07>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x03, 0x07, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -112,7 +112,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x08, 0x00>(send) };
+        unsafe { send_bytes::<0x08, 0x00>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x06, 0x00, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -122,7 +122,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x08, 0x01>(send) };
+        unsafe { send_bytes::<0x08, 0x01>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x06, 0x01, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -132,7 +132,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x08, 0x02>(send) };
+        unsafe { send_bytes::<0x08, 0x02>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x06, 0x02, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -143,7 +143,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x08, 0x03>(send) };
+        unsafe { send_bytes::<0x08, 0x03>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x06, 0x03, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -154,7 +154,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x08, 0x04>(send) };
+        unsafe { send_bytes::<0x08, 0x04>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x06, 0x04, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -165,7 +165,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x08, 0x05>(send) };
+        unsafe { send_bytes::<0x08, 0x05>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x06, 0x05, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -176,7 +176,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x08, 0x06>(send) };
+        unsafe { send_bytes::<0x08, 0x06>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x06, 0x06, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -188,7 +188,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x0b, 0x00>(send) };
+        unsafe { send_bytes::<0x0b, 0x00>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x09, 0x00, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -198,7 +198,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x0b, 0x01>(send) };
+        unsafe { send_bytes::<0x0b, 0x01>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x09, 0x01, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -208,7 +208,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x0b, 0x02>(send) };
+        unsafe { send_bytes::<0x0b, 0x02>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x09, 0x02, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -219,7 +219,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x0b, 0x03>(send) };
+        unsafe { send_bytes::<0x0b, 0x03>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x09, 0x03, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -230,7 +230,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x0b, 0x04>(send) };
+        unsafe { send_bytes::<0x0b, 0x04>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x09, 0x04, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -241,7 +241,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x0b, 0x05>(send) };
+        unsafe { send_bytes::<0x0b, 0x05>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x09, 0x05, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -252,7 +252,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x0b, 0x06>(send) };
+        unsafe { send_bytes::<0x0b, 0x06>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x09, 0x06, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
@@ -262,7 +262,7 @@ impl JoybusPinRead
 {
     fn joybus_read(&mut self, send: &[u8], recv: &mut [u8]) -> Result<usize, ReadError> {
         let output = self.input.take().unwrap().into_output_high();
-        unsafe { send_byte::<0x0b, 0x07>(send) };
+        unsafe { send_bytes::<0x0b, 0x07>(send) };
         self.input = Some(output.into_floating_input());
         unsafe { read_bytes::<0x09, 0x07, 0x26, 0x15, 0x01>(recv) }.map(|v| v as usize)
     }
