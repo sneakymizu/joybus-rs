@@ -12,7 +12,7 @@ pub use joybus::new_console;
 use ufmt::derive::uDebug;
 
 mod protocol;
-pub use protocol::{read_bytes, send_byte, ReadError};
+pub use protocol::{read_bytes, send_bytes, ReadError};
 
 mod timer;
 pub use timer::TimerConfigurator;
