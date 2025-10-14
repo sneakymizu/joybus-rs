@@ -172,7 +172,18 @@ pub unsafe fn read_bytes<
             "rjmp 101f",
         "99:", // end of memory error
             "ldi {errors} 99",
-            "rjmp 101f",
+            // verify stop bit in case it was the right amount of memory supplied
+            "2:", // wait for high
+                "sbic {timer_match_register} {timer_match_position}",
+                "rjmp 101f",
+                "sbic {pin} {pin_number}",
+                "rjmp 2b",
+            "in {low_time_register} {timer_counter_register}", // 5c into microsecond worst case -> 11 cycles remaining
+            "cpi {low_time_register} {max_for_high}",
+            "brlo 101f",
+            "cpi {low_time_register} {min_for_low}",
+            "brge 101f",
+            "rjmp 100f",
         "100:",
             "ldi {errors} 0",
         "101:",
