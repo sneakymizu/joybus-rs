@@ -41,6 +41,7 @@ fn main() -> ! {
     let mut vibrato_counter: i8 = 0;
     let mut vibrato_count_direction = 1i8;
     const VIBRATO_MARGIN: i8 = 4;
+    let _pin = pins.d7.into_output();
     loop {
         match reader_pin.read_contoller_state(&mut n64_controller_state) {
             Ok(_) => (),

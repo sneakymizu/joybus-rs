@@ -110,10 +110,9 @@ pub unsafe fn read_bytes<
 >(
     data: &mut [u8],
 ) -> Result<u8, ReadError> {
-    let data_len = data.len() as u8;
     let [high_addr, low_addr] = (data.as_ptr() as u16).to_be_bytes(); // 3c
     let mut errors: u8;
-    let mut bytes_read_or_additional_error_information = 0u8;
+    let mut bytes_to_read_or_additional_error_information = data.len() as u8;
     asm! {
         "ld {current_byte} z",
         "ldi {read_bit_position} {init_read_bit_position}", // reading bits left to right
@@ -129,16 +128,13 @@ pub unsafe fn read_bytes<
 
         // there should be at least 11 cycles here to do some memory management
         // misalignment possible as this does not include anything before asm-start
-        "out {timer_counter_register} {timer_reset_value}", // 2c | 7c into low worst case -> 9 cycles after this remaining until high is expected
+        "out {timer_counter_register} {timer_reset_value}", // 1c | 7c into low worst case -> 9 cycles after this remaining until high is expected
         "cpi {read_bit_position} 0", // 1c
         "brne 0f", // 1c/2c | skip (2c) for still on same byte
         "st z+ {current_byte}", // 2c
-        "inc {bytes_read}", // 1c
         "ldi {read_bit_position} {init_read_bit_position}", // 1c
-        "cp {bytes_read} {data_len}", // 1c | ensure we're not reading beyond our memory
-        "breq 99f", // 1c/2c | exit on out of memory
         "ld {current_byte} z", // 2c | else load byte
-        // about 8 cycles since timer check.
+        // about 7 cycles since timer check.
         // end of the stuff that might be tricky to do
         // in the last high microsecond of a logic 0
 
@@ -147,37 +143,45 @@ pub unsafe fn read_bytes<
             "sbis {pin} {pin_number}",
             "rjmp 0b",
         // check time sample
-        "in {low_time_register} {timer_counter_register}", // 5c into microsecond worst case -> 11 cycles remaining
-        "cpi {low_time_register} {min_for_low}",
+        "in {low_time_register} {timer_counter_register}", // 1c | 5c into microsecond worst case -> 11 cycles remaining
+        "cpi {low_time_register} {min_low_cycles_for_low}",
         "brge 0f",
-        "cpi {low_time_register} {max_for_high}",
+        "cpi {low_time_register} {max_low_cycles_for_high}",
         "brlo 1f",
-        "rjmp 100f",  // not high, not low, prolly controller stop bit...
+        "brlo 100f",  // not high, not low, prolly controller stop bit...
         // store time sample
         "0:",
+            "dec {bytes_read}", // 1c | ensure we're not reading beyond our memory
+            "brmi 99f", // 1c/2c | exit on out of memory
             "com {read_bit_position}",
             "and {current_byte} {read_bit_position}", // unset bit at read-bit-position
             "com {read_bit_position}",
             "lsr {read_bit_position}",
             "rjmp 2b",
         "1:",
+            "dec {bytes_read}", // 1c | ensure we're not reading beyond our memory
+            "brmi 99f", // 1c/2c | exit on out of memory
             "or {current_byte} {read_bit_position}",
             "lsr {read_bit_position}",
             "rjmp 2b",
 
         // errors and exit
         "98:", // Timeout while wait for low signal
+            "sbi 11 7",
             "ldi {errors} 98",
             "mov {bytes_read} {low_time_register}",
+            "cbi 11 7",
             "rjmp 101f",
         "99:", // end of memory error
+            "sbi 11 7",
             "ldi {errors} 99",
+            "cbi 11 7",
             "rjmp 101f",
         "100:",
             "ldi {errors} 0",
         "101:",
         read_bit_position=out(reg) _,
-        bytes_read=inout(reg) bytes_read_or_additional_error_information,
+        bytes_read=inout(reg) bytes_to_read_or_additional_error_information,
         errors=out(reg) errors,
         low_time_register=out(reg) _,
         timer_reset_value=out(reg) _,
@@ -187,20 +191,17 @@ pub unsafe fn read_bytes<
         timer_counter_register=const TIMER_VALUE_REGISTER,
         timer_match_register=const TIMER_MATCH_REGISTER,
         timer_match_position=const TIMER_MATCH_NUMBER,
-        data_len=in(reg) data_len,
         init_read_bit_position=const INIT_READ_BIT_POSITION,
         in("ZL") low_addr,
         in("ZH") high_addr,
-        min_for_low=const MINIMUM_LOW_CYCLES_FOR_0,
-        max_for_high=const MAXIMUM_LOW_CYCLES_FOR_1,
+        min_low_cycles_for_low=const MINIMUM_LOW_CYCLES_FOR_0,
+        max_low_cycles_for_high=const MAXIMUM_LOW_CYCLES_FOR_1,
     }
     match errors {
-        0 => Ok(bytes_read_or_additional_error_information),
-        99 => Err(ReadError::OutOfMemory(
-            bytes_read_or_additional_error_information,
-        )),
+        0 => Ok((data.len() as u8) - bytes_to_read_or_additional_error_information),
+        99 => Err(ReadError::OutOfMemory(data.len() as u8)),
         98 => Err(ReadError::Timeout(
-            bytes_read_or_additional_error_information,
+            bytes_to_read_or_additional_error_information,
         )),
         _ => Err(ReadError::UnknownError(errors)),
     }
