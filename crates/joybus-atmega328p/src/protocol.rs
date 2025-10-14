@@ -171,8 +171,8 @@ pub unsafe fn read_bytes<
             "mov {bytes_read} {low_time_register}",
             "rjmp 101f",
         "99:", // end of memory error
-            "ldi {errors} 99",
             // verify stop bit in case it was the right amount of memory supplied
+            "ldi {errors} 99", // set out of memory error value
             "2:", // wait for high
                 "sbic {timer_match_register} {timer_match_position}",
                 "rjmp 101f",
@@ -183,7 +183,7 @@ pub unsafe fn read_bytes<
             "brlo 101f",
             "cpi {low_time_register} {min_for_low}",
             "brge 101f",
-            "rjmp 100f",
+            // exit with success, overwriting the error value as the read bit was the stop bit
         "100:",
             "ldi {errors} 0",
         "101:",
