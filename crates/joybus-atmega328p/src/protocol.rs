@@ -115,10 +115,10 @@ pub unsafe fn read_bytes<
     let mut errors: u8;
     let mut bytes_read_or_additional_error_information = 0u8;
     asm! {
-        "ld {current_byte} z",
-        "ldi {read_bit_position} {init_read_bit_position}", // reading bits left to right
-        "ldi {timer_reset_value} 0",
-        "out {timer_counter_register} {timer_reset_value}", // 2c | ensure timer is reset
+        "ld {current_byte} z", // 2c
+        "ldi {read_bit_position} {init_read_bit_position}", // 1c | reading bits left to right
+        "ldi {timer_reset_value} 0", // 1c
+        "out {timer_counter_register} {timer_reset_value}", // 1c | ensure timer is reset
         "sbi {timer_match_register} {timer_match_position}", // 2c
         // wait for low
         "2:",
@@ -129,7 +129,7 @@ pub unsafe fn read_bytes<
 
         // there should be at least 11 cycles here to do some memory management
         // misalignment possible as this does not include anything before asm-start
-        "out {timer_counter_register} {timer_reset_value}", // 2c | 7c into low worst case -> 9 cycles after this remaining until high is expected
+        "out {timer_counter_register} {timer_reset_value}", // 1c | 7c into low worst case -> 9 cycles after this remaining until high is expected
         "cpi {read_bit_position} 0", // 1c
         "brne 0f", // 1c/2c | skip (2c) for still on same byte
         "st z+ {current_byte}", // 2c
