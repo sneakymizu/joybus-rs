@@ -5,8 +5,8 @@ use ufmt::derive::uDebug;
 
 #[cfg_attr(feature = "ufmt", derive(uDebug))]
 pub enum JoybusError {
-    Timeout,
-    ResponseMismatch,
+    Timeout(usize),
+    ResponseMismatch(usize),
     OutOfMemory(usize),
     ImplementationReportsError(usize),
 }
@@ -27,7 +27,7 @@ pub trait JoybusConsoleExt: JoybusConsole {
     ) -> Result<(), JoybusError> {
         let res = self.read_write(&[commands::POLL_SIGNAL], &mut data.0)?;
         if res != 4 {
-            Err(JoybusError::ResponseMismatch)
+            Err(JoybusError::ResponseMismatch(res))
         } else {
             Ok(())
         }
