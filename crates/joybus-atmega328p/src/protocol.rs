@@ -168,7 +168,7 @@ pub unsafe fn read_bytes<
         // errors and exit
         "98:", // Timeout while wait for low signal
             "ldi {errors} 98",
-            "mov {bytes_read} {low_time_register}",
+            "in {bytes_read} {timer_counter_register}",
             "rjmp 101f",
         "99:", // end of memory error
             // verify stop bit in case it was the right amount of memory supplied
