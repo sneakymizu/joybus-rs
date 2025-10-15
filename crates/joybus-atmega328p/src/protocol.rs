@@ -176,9 +176,9 @@ pub unsafe fn read_bytes<
             "2:", // wait for high
                 "sbic {timer_match_register} {timer_match_position}",
                 "rjmp 101f",
-                "sbic {pin} {pin_number}",
+                "sbis {pin} {pin_number}", // wait for high again to read the time since low for stop bit
                 "rjmp 2b",
-            "in {low_time_register} {timer_counter_register}", // 5c into microsecond worst case -> 11 cycles remaining
+            "in {low_time_register} {timer_counter_register}",
             "cpi {low_time_register} {max_for_high}",
             "brlo 101f",
             "cpi {low_time_register} {min_for_low}",
