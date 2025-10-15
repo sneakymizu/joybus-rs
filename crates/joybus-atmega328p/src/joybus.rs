@@ -21,7 +21,8 @@ pub fn new_console<PIN: PinOps, TIMER>(
 where
     TIMER: TimerConfigurator,
 {
-    timer.configure_direct();
+    timer.configure_count_cycles();
+    timer.configure_timeout(64);
     JoybusPin {
         pin: JoybusPinWrapper::from_pin_and_timer(pin, timer),
     }
