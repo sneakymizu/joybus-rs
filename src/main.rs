@@ -42,11 +42,11 @@ fn main() -> ! {
     let mut vibrato_count_direction = 1i8;
     const VIBRATO_MARGIN: i8 = 4;
     loop {
+        delay_ms(100);
         match reader_pin.read_contoller_state(&mut n64_controller_state) {
             Ok(_) => (),
             Err(e) => {
                 let _ = uwriteln!(serial, "Got error {:?}\r", e);
-                delay_ms(10);
                 continue;
             }
         };
