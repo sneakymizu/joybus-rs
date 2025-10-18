@@ -5,13 +5,13 @@
 
 use core::ops::{Add, BitAnd, Div, Mul, Sub};
 
-use arduino_hal::clock::Clock;
+use arduino_hal::{clock::Clock, delay_ms};
 use panic_halt as _;
 use ufmt::{derive::uDebug, uwriteln};
 
 use joybus_rs_atmega328p::new_console;
 
-use joybus_rs::{JoybusConsoleExt, JoybusControllerState, JoybusError};
+use joybus_rs::{JoybusConsoleExt, JoybusControllerState};
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -44,16 +44,9 @@ fn main() -> ! {
     loop {
         match reader_pin.read_contoller_state(&mut n64_controller_state) {
             Ok(_) => (),
-            Err(JoybusError::OutOfMemory(len)) => {
-                let _ = uwriteln!(
-                    serial,
-                    "(No Stopbit) Bytes are {:?}: {:?}\r",
-                    len,
-                    n64_controller_state
-                );
-            }
             Err(e) => {
                 let _ = uwriteln!(serial, "Got error {:?}\r", e);
+                delay_ms(10);
                 continue;
             }
         };
