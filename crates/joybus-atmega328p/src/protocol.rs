@@ -173,16 +173,11 @@ pub unsafe fn read_bytes<
         "99:", // end of memory error
             // verify stop bit in case it was the right amount of memory supplied
             "ldi {errors} 99", // set out of memory error value
-            "2:", // wait for high
-                "sbic {timer_match_register} {timer_match_position}",
-                "rjmp 101f",
-                "sbis {pin} {pin_number}", // wait for high again to read the time since low for stop bit
-                "rjmp 2b",
-            "in {low_time_register} {timer_counter_register}",
-            "cpi {low_time_register} {max_for_high}",
-            "brlo 101f",
-            "cpi {low_time_register} {min_for_low}",
-            "brge 101f",
+            "0:",
+                "sbis {pin} {pin_number}",
+                "rjmp 0b",
+            "in {bytes_read} {timer_counter_register}",
+            "rjmp 101f",
             // exit with success, overwriting the error value as the read bit was the stop bit
         "100:",
             "ldi {errors} 0",
@@ -207,9 +202,17 @@ pub unsafe fn read_bytes<
     }
     match errors {
         0 => Ok(bytes_read_or_additional_error_information),
-        99 => Err(ReadError::OutOfMemory(
-            bytes_read_or_additional_error_information,
-        )),
+        99 => {
+            if MAXIMUM_LOW_CYCLES_FOR_1 < bytes_read_or_additional_error_information
+                && bytes_read_or_additional_error_information < MINIMUM_LOW_CYCLES_FOR_0
+            {
+                Ok(data_len)
+            } else {
+                Err(ReadError::OutOfMemory(
+                    bytes_read_or_additional_error_information,
+                ))
+            }
+        }
         98 => Err(ReadError::Timeout(
             bytes_read_or_additional_error_information,
         )),
