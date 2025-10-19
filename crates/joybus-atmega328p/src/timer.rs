@@ -1,6 +1,10 @@
 /// Trait should supply a configuration allowing a timer to count each clock cycle.
 pub trait TimerConfigurator {
+    /// Should configure the timer to count cycles for the chosen hardware.
+    /// This allows the implementation to extrapolate timing from cycle counts.
     fn configure_count_cycles(&mut self);
+    /// Should configure a timeout for the timer.
+    /// If the timeout value is reached the impelementation should assume that the communication partner will not respond.
     fn configure_timeout(&mut self, timeout: usize);
 }
 
