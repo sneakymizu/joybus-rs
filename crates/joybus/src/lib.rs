@@ -3,13 +3,21 @@
 #[cfg(feature = "ufmt")]
 use ufmt::derive::uDebug;
 
+/// Provides error variants that might occur during Joybus interactions
 #[cfg_attr(feature = "ufmt", derive(uDebug))]
 pub enum JoybusError {
+    /// If a timeout occurs during reading (e.g. line does not go to low) this error provides the timeout in clock cycles.
     Timeout(usize),
+    /// If the response did not match expectations - e.g. too litle bytes were read from a controller - a ResponseMismatch is returned.
+    /// The value contained in ResponseMismatch reflects the bytes read instead.
     ResponseMismatch(usize),
+    /// If too little memory was supplied to the read function, an OutOfMemory error will be returned containing the amount of cycles since the line was pulled low.
+    /// This should be used to debug timing issues with the stop bit.
     OutOfMemory(usize),
+    /// If any implementation chooses to provide an implementation specific error code the ImplementationReportsError can be used with the error value.
     ImplementationReportsError(usize),
 }
+
 pub trait JoybusConsole {
     fn read_write(&mut self, write_data: &[u8], read_data: &mut [u8])
         -> Result<usize, JoybusError>;
