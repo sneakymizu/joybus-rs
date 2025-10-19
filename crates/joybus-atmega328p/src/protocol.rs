@@ -115,10 +115,10 @@ pub unsafe fn read_bytes<
     let mut errors: u8;
     let mut bytes_read_or_additional_error_information = 0u8;
     asm! {
-        "ld {current_byte} z",
-        "ldi {read_bit_position} {init_read_bit_position}", // reading bits left to right
-        "ldi {timer_reset_value} 0",
-        "out {timer_counter_register} {timer_reset_value}", // 2c | ensure timer is reset
+        "ld {current_byte} z", // 2c
+        "ldi {read_bit_position} {init_read_bit_position}", // 1c | reading bits left to right
+        "ldi {timer_reset_value} 0", // 1c
+        "out {timer_counter_register} {timer_reset_value}", // 1c | ensure timer is reset
         "sbi {timer_match_register} {timer_match_position}", // 2c
         // wait for low
         "2:",
@@ -129,7 +129,7 @@ pub unsafe fn read_bytes<
 
         // there should be at least 11 cycles here to do some memory management
         // misalignment possible as this does not include anything before asm-start
-        "out {timer_counter_register} {timer_reset_value}", // 2c | 7c into low worst case -> 9 cycles after this remaining until high is expected
+        "out {timer_counter_register} {timer_reset_value}", // 1c | 7c into low worst case -> 9 cycles after this remaining until high is expected
         "cpi {read_bit_position} 0", // 1c
         "brne 0f", // 1c/2c | skip (2c) for still on same byte
         "st z+ {current_byte}", // 2c
@@ -168,11 +168,19 @@ pub unsafe fn read_bytes<
         // errors and exit
         "98:", // Timeout while wait for low signal
             "ldi {errors} 98",
-            "mov {bytes_read} {low_time_register}",
+            "in {bytes_read} {timer_counter_register}",
             "rjmp 101f",
         "99:", // end of memory error
-            "ldi {errors} 99",
+            // to verify if stop bit was sent this will wait for high again
+            "0:",
+                // NOTE: this does not check for timeouts as the protocol requires a passive pullup.
+                // any component would need to actively keep pulling down the signal.
+                "sbis {pin} {pin_number}",
+                "rjmp 0b",
+            "ldi {errors} 99", // set out of memory error value
+            "in {bytes_read} {timer_counter_register}", // add timeing information for further evaluation of stop bit timing
             "rjmp 101f",
+            // exit with success, overwriting the error value as the read bit was the stop bit
         "100:",
             "ldi {errors} 0",
         "101:",
@@ -196,9 +204,17 @@ pub unsafe fn read_bytes<
     }
     match errors {
         0 => Ok(bytes_read_or_additional_error_information),
-        99 => Err(ReadError::OutOfMemory(
-            bytes_read_or_additional_error_information,
-        )),
+        99 => {
+            if MAXIMUM_LOW_CYCLES_FOR_1 < bytes_read_or_additional_error_information
+                && bytes_read_or_additional_error_information < MINIMUM_LOW_CYCLES_FOR_0
+            {
+                Ok(data_len)
+            } else {
+                Err(ReadError::OutOfMemory(
+                    bytes_read_or_additional_error_information,
+                ))
+            }
+        }
         98 => Err(ReadError::Timeout(
             bytes_read_or_additional_error_information,
         )),
