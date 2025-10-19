@@ -134,12 +134,12 @@ impl JoybusControllerState {
     pub fn c_right(&self) -> bool {
         (self.0[1] & 1u8) != 0
     }
-    /// Provides the displacement of the N64-Controllers-Analogue-Stick in x (horizontal) direction.
+    /// Provides the displacement value of the N64-Controllers-Analogue-Stick in x (horizontal) direction.
     /// Positive if the Analogue-Stick is tilted right. Negative if it is tilted left. Interval goes from [-128,127].
     pub fn x_axis(&self) -> i8 {
         self.0[2] as i8
     }
-    /// Provides the displacement of the N64-Controllers-Analogue-Stick in y (vertical) direction.
+    /// Provides the displacement value of the N64-Controllers-Analogue-Stick in y (vertical) direction.
     /// Positive if the Analogue-Stick is tilted up. Negative if it is tilted down. Interval goes from [-128,127].
     pub fn y_axis(&self) -> i8 {
         self.0[3] as i8
