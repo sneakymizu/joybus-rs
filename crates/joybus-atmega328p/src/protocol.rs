@@ -171,12 +171,12 @@ pub unsafe fn read_bytes<
             "in {bytes_read} {timer_counter_register}",
             "rjmp 101f",
         "99:", // end of memory error
-            // verify stop bit in case it was the right amount of memory supplied
-            "ldi {errors} 99", // set out of memory error value
+            // to verify if stop bit was sent this will wait for high again
             "0:",
                 "sbis {pin} {pin_number}",
                 "rjmp 0b",
-            "in {bytes_read} {timer_counter_register}",
+            "ldi {errors} 99", // set out of memory error value
+            "in {bytes_read} {timer_counter_register}", // add timeing information for further evaluation of stop bit timing
             "rjmp 101f",
             // exit with success, overwriting the error value as the read bit was the stop bit
         "100:",
