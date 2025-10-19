@@ -173,6 +173,8 @@ pub unsafe fn read_bytes<
         "99:", // end of memory error
             // to verify if stop bit was sent this will wait for high again
             "0:",
+                // NOTE: this does not check for timeouts as the protocol requires a passive pullup.
+                // any component would need to actively keep pulling down the signal.
                 "sbis {pin} {pin_number}",
                 "rjmp 0b",
             "ldi {errors} 99", // set out of memory error value
