@@ -4,13 +4,20 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = ["crates/*"]
+members = [
+    "crates/*",
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
 name = "rust64"
 test = false
 bench = false
+
+[[example]]
+name = "ocarina"
+path = "examples/ocarina/ocarina.rs"
+
 
 [dependencies]
 panic-halt.workspace = true
