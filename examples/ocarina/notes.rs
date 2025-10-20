@@ -7,9 +7,11 @@ use core::ops::{Add, BitAnd, Div, Mul, Sub};
 
 use ufmt::derive::uDebug;
 
+#[allow(dead_code)]
 pub enum Sound {
+    Nothing,
     Note(Note),
-    Vibrato(Note, i8),
+    Modulation(Note, i8),
 }
 
 pub struct PwmOcarina<PIN: PinOps, TIMER> {
@@ -41,18 +43,22 @@ impl<PIN: PinOps, TIMER> PwmOcarina<PIN, TIMER> {
     {
         let freq = match sound {
             Sound::Note(note) => note.into_frequency::<TUNING>() as u16,
-            Sound::Vibrato(note, vibrato) => {
+            Sound::Modulation(note, modulation) => {
                 (note.into_frequency::<TUNING>()
                     * if self.vibrato_counter == 0 {
                         1.0
                     } else {
-                        let n64_modulation = if vibrato == 0 {
+                        let n64_modulation = if modulation == 0 {
                             1.0
                         } else {
-                            1.0 + vibrato as f32 / 128.0
+                            1.0 + modulation as f32 / 128.0
                         };
                         1.0 + n64_modulation * Self::VIBRATO_FACTOR * self.vibrato_counter as f32
                     }) as u16
+            }
+            Sound::Nothing => {
+                self.timer.set_timer_value(0);
+                return;
             }
         };
 

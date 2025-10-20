@@ -1,10 +1,9 @@
 #![no_std]
 #![no_main]
 
-use arduino_hal::{clock::Clock, delay_ms};
 use panic_halt as _;
-use ufmt::{derive::uDebug, uwriteln};
 
+use arduino_hal::delay_ms;
 use joybus_rs_atmega328p::new_console;
 
 use joybus_rs::{JoybusConsoleExt, JoybusControllerState};
@@ -16,51 +15,44 @@ mod notes;
 #[arduino_hal::entry]
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
-
     let pins = arduino_hal::pins!(dp);
+
     // Digital pin 13 is also connected to an onboard LED marked "L"
     let mut led_pin = pins.d13.into_output();
     led_pin.set_high();
 
-    let mut serial = arduino_hal::default_serial!(dp, pins, 57600);
     let mut reader_pin = new_console(pins.d6, dp.TC0);
     let mut pwm_ocarina = PwmOcarina::from_timer(pins.d9.into_output(), dp.TC1);
 
     led_pin.set_low();
     let mut n64_controller_state = JoybusControllerState::default();
 
-    let mut currently_selected_note: BaseNote;
     loop {
         delay_ms(100);
-        match reader_pin.read_contoller_state(&mut n64_controller_state) {
-            Ok(_) => (),
-            Err(e) => {
-                let _ = uwriteln!(serial, "Got error {:?}\r", e);
-                continue;
-            }
+        let Ok(_) = reader_pin.read_contoller_state(&mut n64_controller_state) else {
+            continue;
         };
 
-        let note_selection: BaseNoteSelection = (&n64_controller_state).into();
-        let note: Result<BaseNote, u8> = note_selection.try_into();
-        currently_selected_note = match note {
-            Ok(note) => note,
-            Err(0) => {
-                let _ = uwriteln!(serial, "Nothing selected\r");
-                continue;
+        let note: Result<Note, u8> = (&n64_controller_state).try_into();
+        match note {
+            Ok(note) => {
+                pwm_ocarina.play_sound::<440>(notes::Sound::Modulation(
+                    note
+                    - n64_controller_state.z_button() as i8  // augments half step down
+                    + n64_controller_state.right_trigger() as i8 // augments half step up
+                    + n64_controller_state.y_axis().signum() * 2, // augments a whole step
+                    n64_controller_state.x_axis().abs(),
+                ));
+                led_pin.set_low();
             }
-            Err(e) => {
-                let _ = uwriteln!(
-                    serial,
-                    "Simultaniously selected notes (counting {}), not switching.\r",
-                    e
-                );
-                continue;
+            Err(0) => {
+                pwm_ocarina.play_sound::<440>(notes::Sound::Nothing);
+                led_pin.set_low();
+            }
+            Err(_) => {
+                led_pin.set_high();
             }
         };
-        pwm_ocarina.play_sound::<440>(notes::Sound::Vibrato(
-            currently_selected_note.into(),
-            n64_controller_state.x_axis().abs(),
-        ));
     }
 }
 
@@ -72,5 +64,14 @@ impl From<&JoybusControllerState> for BaseNoteSelection {
             | (value.c_down() as u8) << BaseNote::F5 as u8
             | (value.c_up() as u8) << BaseNote::D6 as u8;
         Self::from_notes(note_selections)
+    }
+}
+impl TryFrom<&JoybusControllerState> for Note {
+    type Error = u8;
+
+    fn try_from(value: &JoybusControllerState) -> Result<Self, Self::Error> {
+        let selection: BaseNoteSelection = value.into();
+        let base_note: BaseNote = selection.try_into()?;
+        Ok(base_note.into())
     }
 }
