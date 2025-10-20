@@ -18,7 +18,6 @@ bench = false
 name = "ocarina"
 path = "examples/ocarina/ocarina.rs"
 
-
 [dependencies]
 panic-halt.workspace = true
 ufmt.workspace = true
