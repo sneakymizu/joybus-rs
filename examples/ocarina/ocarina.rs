@@ -28,7 +28,7 @@ impl<PIN: PinOps, TIMER> PwmOcarina<PIN, TIMER> {
 
     pub fn from_timer(pin: Pin<Output, PIN>, mut timer: TIMER) -> Self
     where
-        TIMER: OcarinaTimer,
+        TIMER: OcarinaSoundGenerator,
     {
         timer.configure_timer();
         Self {
@@ -41,49 +41,49 @@ impl<PIN: PinOps, TIMER> PwmOcarina<PIN, TIMER> {
 
     pub fn play_sound<const TUNING: u32>(&mut self, sound: Sound)
     where
-        TIMER: OcarinaTimer,
+        TIMER: OcarinaSoundGenerator,
     {
-        let freq = match sound {
+        let freq = self.sound_to_frequency::<TUNING>(sound);
+        if self.vibrato_counter.abs() >= Self::VIBRATO_MARGIN {
+            self.vibrato_count_direction *= -1;
+        }
+        self.vibrato_counter += self.vibrato_count_direction;
+        self.timer.set_frequency(freq);
+    }
+    fn sound_to_frequency<const TUNING: u32>(&self, sound: Sound) -> u16 {
+        match sound {
             Sound::Note(note) => note.into_frequency::<TUNING>() as u16,
             Sound::Modulation(note, modulation) => {
                 (note.into_frequency::<TUNING>()
                     * if self.vibrato_counter == 0 {
                         1.0
                     } else {
-                        let n64_modulation = if modulation == 0 {
-                            1.0
-                        } else {
-                            1.0 + modulation as f32 / 128.0
-                        };
+                        let n64_modulation = 1.0 + modulation.abs() as f32 / 128.0;
                         1.0 + n64_modulation * Self::VIBRATO_FACTOR * self.vibrato_counter as f32
                     }) as u16
             }
-            Sound::Nothing => {
-                self.timer.set_timer_value(0);
-                return;
-            }
-        };
-
-        if self.vibrato_counter.abs() >= Self::VIBRATO_MARGIN {
-            self.vibrato_count_direction *= -1;
+            Sound::Nothing => 0,
         }
-        self.vibrato_counter += self.vibrato_count_direction;
-        let top = frequency_into_top(freq);
-        self.timer.set_timer_value(top);
     }
 }
 
-pub trait OcarinaTimer {
+pub trait OcarinaSoundGenerator {
     fn configure_timer(&mut self);
-    fn set_timer_value(&mut self, top: u16);
+    fn set_frequency(&mut self, top: u16);
 }
-impl OcarinaTimer for TC1 {
+impl OcarinaSoundGenerator for TC1 {
     fn configure_timer(&mut self) {
         self.tccr1a
             .write(|w| w.com1a().match_toggle().wgm1().bits(1));
         self.tccr1b.write(|w| w.wgm1().bits(0b10).cs1().direct());
     }
-    fn set_timer_value(&mut self, top: u16) {
+    fn set_frequency(&mut self, frequency: u16) {
+        let top = if frequency == 0 {
+            0
+        } else {
+            // formula is for 16 bit phase and frequency correct timer
+            (arduino_hal::DefaultClock::FREQ / (4 * frequency as u32)) as u16
+        };
         self.ocr1a.write(|w| w.bits(top));
     }
 }
@@ -148,14 +148,5 @@ impl From<OcarinaNote> for Note {
             OcarinaNote::D5 => Self::from(MiddleCScale::D4),
             OcarinaNote::F5 => Self::from(MiddleCScale::F4),
         }) + 12
-    }
-}
-
-fn frequency_into_top(freq: u16) -> u16 {
-    // only works for 16 bit phase and frequency correct timer
-    if freq == 0 {
-        0
-    } else {
-        (arduino_hal::DefaultClock::FREQ / (4 * freq as u32)) as u16
     }
 }

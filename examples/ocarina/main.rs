@@ -49,7 +49,7 @@ fn main() -> ! {
                     - if n64_controller_state.z_button(){Step::HalfStep}else{Step::None}  // augments half step down
                     + if n64_controller_state.right_trigger(){Step::HalfStep}else{Step::None} // augments half step up
                     + n64_controller_state.y_axis().signum() * Step::FullStep, // augments a whole step
-                    n64_controller_state.x_axis().abs(),
+                    n64_controller_state.x_axis(),
                 ));
                 led_pin.set_low();
             }
