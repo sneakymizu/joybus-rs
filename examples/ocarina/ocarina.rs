@@ -115,6 +115,7 @@ impl BitAnd<u8> for OcarinaNoteSelection {
     }
 }
 
+#[derive(uDebug)]
 pub enum NoteSelectionError {
     TooManyNotesToPlay(u8),
     NoNoteToPlay,
