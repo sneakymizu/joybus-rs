@@ -10,7 +10,7 @@ members = [
 
 [[example]]
 name = "ocarina"
-path = "examples/ocarina/ocarina.rs"
+path = "examples/ocarina/main.rs"
 
 [dev-dependencies]
 panic-halt.workspace = true
