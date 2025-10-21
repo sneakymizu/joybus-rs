@@ -32,7 +32,10 @@ fn main() -> ! {
     let mut n64_controller_state = JoybusControllerState::default();
 
     loop {
-        delay_ms(100);
+        // there seem to be issues if this is polling too fast resulting in more
+        // timeout errors as the polling signal gets resent too fast
+        // therefore a small delay here.
+        delay_ms(50);
         match reader_pin.read_contoller_state(&mut n64_controller_state) {
             Ok(_) => (),
             Err(e) => {
