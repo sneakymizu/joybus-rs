@@ -97,31 +97,30 @@ pub enum OcarinaNote {
     D6,
 }
 
-pub struct BaseNoteSelection {
+pub struct OcarinaNoteSelection {
     // bitmask D,B,A,F,D
     selection: u8,
 }
-impl BaseNoteSelection {
-    pub fn from_notes(selected_notes: u8) -> Self {
-        Self {
-            selection: selected_notes,
-        }
+impl OcarinaNoteSelection {
+    pub fn from_bitmask(bitmask: u8) -> Self {
+        Self { selection: bitmask }
     }
 }
-impl BitAnd<u8> for BaseNoteSelection {
+impl BitAnd<u8> for OcarinaNoteSelection {
     type Output = u8;
 
     fn bitand(self, rhs: u8) -> Self::Output {
         self.selection & rhs
     }
 }
+
 pub enum NoteSelectionError {
     TooManyNotesToPlay(u8),
     NoNoteToPlay,
 }
-impl TryFrom<BaseNoteSelection> for OcarinaNote {
+impl TryFrom<OcarinaNoteSelection> for OcarinaNote {
     type Error = NoteSelectionError;
-    fn try_from(value: BaseNoteSelection) -> Result<Self, Self::Error> {
+    fn try_from(value: OcarinaNoteSelection) -> Result<Self, Self::Error> {
         let ones = value.selection.count_ones() as u8;
         if ones > 1 {
             Err(NoteSelectionError::TooManyNotesToPlay(ones))
@@ -149,14 +148,6 @@ impl From<OcarinaNote> for Note {
             OcarinaNote::D5 => Self::from(MiddleCScale::D4),
             OcarinaNote::F5 => Self::from(MiddleCScale::F4),
         }) + 12
-    }
-}
-impl TryFrom<BaseNoteSelection> for Note {
-    type Error = NoteSelectionError;
-
-    fn try_from(value: BaseNoteSelection) -> Result<Self, Self::Error> {
-        let base_note: OcarinaNote = value.try_into()?;
-        Ok(base_note.into())
     }
 }
 

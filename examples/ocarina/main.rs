@@ -10,7 +10,7 @@ use joybus_rs::{JoybusConsoleExt, JoybusControllerState};
 use ufmt::uwriteln;
 
 use crate::notes::{Note, Step};
-use crate::ocarina::{BaseNoteSelection, NoteSelectionError, OcarinaNote, PwmOcarina};
+use crate::ocarina::{NoteSelectionError, OcarinaNote, OcarinaNoteSelection, PwmOcarina};
 
 mod notes;
 mod ocarina;
@@ -65,21 +65,21 @@ fn main() -> ! {
     }
 }
 
-impl From<&JoybusControllerState> for BaseNoteSelection {
+impl From<&JoybusControllerState> for OcarinaNoteSelection {
     fn from(value: &JoybusControllerState) -> Self {
         let note_selections = (value.c_right() as u8) << OcarinaNote::A5 as u8
             | (value.c_left() as u8) << OcarinaNote::B5 as u8
             | (value.a_button() as u8) << OcarinaNote::D5 as u8
             | (value.c_down() as u8) << OcarinaNote::F5 as u8
             | (value.c_up() as u8) << OcarinaNote::D6 as u8;
-        Self::from_notes(note_selections)
+        Self::from_bitmask(note_selections)
     }
 }
 impl TryFrom<&JoybusControllerState> for Note {
     type Error = NoteSelectionError;
 
     fn try_from(value: &JoybusControllerState) -> Result<Self, Self::Error> {
-        let selection: BaseNoteSelection = value.into();
+        let selection: OcarinaNoteSelection = value.into();
         let base_note: OcarinaNote = selection.try_into()?;
         Ok(base_note.into())
     }
