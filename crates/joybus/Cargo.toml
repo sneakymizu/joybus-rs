@@ -12,3 +12,4 @@ ufmt=["dep:ufmt"]
 
 [lib]
 test=false
+bench=false

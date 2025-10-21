@@ -1,2 +1,0 @@
-# Usage Notes
-Make sure you use the joybus implementation while not sending requests to the controller faster than ~100ms? at a time as the polling rate on the controllers side might be limited resulting in weird behaviour with more error response as necessary as the controller will just not respond to some of the commands.
