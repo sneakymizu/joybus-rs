@@ -10,6 +10,7 @@ use ufmt::derive::uDebug;
 use crate::notes::{MiddleCScale, Note};
 
 #[allow(dead_code)]
+#[derive(Clone)]
 pub enum Sound {
     Nothing,
     Note(Note),
@@ -58,7 +59,7 @@ impl<PIN: PinOps, TIMER> PwmOcarina<PIN, TIMER> {
                     * if self.vibrato_counter == 0 {
                         1.0
                     } else {
-                        let n64_modulation = 1.0 + modulation.abs() as f32 / 128.0;
+                        let n64_modulation = 1.0 + (modulation.abs() as u8) as f32 / 128.0;
                         1.0 + n64_modulation * Self::VIBRATO_FACTOR * self.vibrato_counter as f32
                     }) as u16
             }

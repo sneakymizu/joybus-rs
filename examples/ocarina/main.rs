@@ -44,13 +44,14 @@ fn main() -> ! {
         let note: Result<Note, NoteSelectionError> = (&n64_controller_state).try_into();
         match note {
             Ok(note) => {
-                pwm_ocarina.play_sound::<440>(ocarina::Sound::Modulation(
+                let sound = ocarina::Sound::Modulation(
                     note
                     - if n64_controller_state.z_button(){Step::HalfStep}else{Step::None}  // augments half step down
                     + if n64_controller_state.right_trigger(){Step::HalfStep}else{Step::None} // augments half step up
                     + n64_controller_state.y_axis().signum() * Step::FullStep, // augments a whole step
                     n64_controller_state.x_axis(),
-                ));
+                );
+                pwm_ocarina.play_sound::<440>(sound);
                 led_pin.set_low();
             }
             Err(NoteSelectionError::NoNoteToPlay) => {
