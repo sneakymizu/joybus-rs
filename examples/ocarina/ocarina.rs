@@ -3,10 +3,11 @@
 
 use panic_halt as _;
 
-use arduino_hal::delay_ms;
+use arduino_hal::{default_serial, delay_ms};
 use joybus_rs_atmega328p::new_console;
 
 use joybus_rs::{JoybusConsoleExt, JoybusControllerState};
+use ufmt::uwriteln;
 
 use crate::notes::{BaseNote, BaseNoteSelection, Note, NoteSelectionError, PwmOcarina};
 
@@ -21,6 +22,7 @@ fn main() -> ! {
     let mut led_pin = pins.d13.into_output();
     led_pin.set_high();
 
+    let mut serial = default_serial!(dp, pins, 57600);
     let mut reader_pin = new_console(pins.d6, dp.TC0);
     let mut pwm_ocarina = PwmOcarina::from_timer(pins.d9.into_output(), dp.TC1);
 
@@ -29,9 +31,13 @@ fn main() -> ! {
 
     loop {
         delay_ms(100);
-        let Ok(_) = reader_pin.read_contoller_state(&mut n64_controller_state) else {
-            continue;
-        };
+        match reader_pin.read_contoller_state(&mut n64_controller_state) {
+            Ok(_) => (),
+            Err(e) => {
+                let _ = uwriteln!(serial, "Some when reading controller state {:?}", e);
+                continue;
+            }
+        }
 
         let note: Result<Note, NoteSelectionError> = (&n64_controller_state).try_into();
         match note {
