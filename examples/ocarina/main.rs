@@ -9,9 +9,11 @@ use joybus_rs_atmega328p::new_console;
 use joybus_rs::{JoybusConsoleExt, JoybusControllerState};
 use ufmt::uwriteln;
 
-use crate::notes::{BaseNote, BaseNoteSelection, Note, NoteSelectionError, PwmOcarina};
+use crate::notes::{Note, Step};
+use crate::ocarina::{BaseNoteSelection, NoteSelectionError, OcarinaNote, PwmOcarina};
 
 mod notes;
+mod ocarina;
 
 #[arduino_hal::entry]
 fn main() -> ! {
@@ -42,17 +44,17 @@ fn main() -> ! {
         let note: Result<Note, NoteSelectionError> = (&n64_controller_state).try_into();
         match note {
             Ok(note) => {
-                pwm_ocarina.play_sound::<440>(notes::Sound::Modulation(
+                pwm_ocarina.play_sound::<440>(ocarina::Sound::Modulation(
                     note
-                    - n64_controller_state.z_button() as i8  // augments half step down
-                    + n64_controller_state.right_trigger() as i8 // augments half step up
-                    + n64_controller_state.y_axis().signum() * 2, // augments a whole step
+                    - if n64_controller_state.z_button(){Step::HalfStep}else{Step::None}  // augments half step down
+                    + if n64_controller_state.right_trigger(){Step::HalfStep}else{Step::None} // augments half step up
+                    + n64_controller_state.y_axis().signum() * Step::FullStep, // augments a whole step
                     n64_controller_state.x_axis().abs(),
                 ));
                 led_pin.set_low();
             }
             Err(NoteSelectionError::NoNoteToPlay) => {
-                pwm_ocarina.play_sound::<440>(notes::Sound::Nothing);
+                pwm_ocarina.play_sound::<440>(ocarina::Sound::Nothing);
                 led_pin.set_low();
             }
             Err(NoteSelectionError::TooManyNotesToPlay(amount)) => {
@@ -65,11 +67,11 @@ fn main() -> ! {
 
 impl From<&JoybusControllerState> for BaseNoteSelection {
     fn from(value: &JoybusControllerState) -> Self {
-        let note_selections = (value.c_right() as u8) << BaseNote::A5 as u8
-            | (value.c_left() as u8) << BaseNote::B5 as u8
-            | (value.a_button() as u8) << BaseNote::D5 as u8
-            | (value.c_down() as u8) << BaseNote::F5 as u8
-            | (value.c_up() as u8) << BaseNote::D6 as u8;
+        let note_selections = (value.c_right() as u8) << OcarinaNote::A5 as u8
+            | (value.c_left() as u8) << OcarinaNote::B5 as u8
+            | (value.a_button() as u8) << OcarinaNote::D5 as u8
+            | (value.c_down() as u8) << OcarinaNote::F5 as u8
+            | (value.c_up() as u8) << OcarinaNote::D6 as u8;
         Self::from_notes(note_selections)
     }
 }
@@ -78,7 +80,7 @@ impl TryFrom<&JoybusControllerState> for Note {
 
     fn try_from(value: &JoybusControllerState) -> Result<Self, Self::Error> {
         let selection: BaseNoteSelection = value.into();
-        let base_note: BaseNote = selection.try_into()?;
+        let base_note: OcarinaNote = selection.try_into()?;
         Ok(base_note.into())
     }
 }
