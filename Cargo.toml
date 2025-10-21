@@ -8,17 +8,11 @@ members = [
     "crates/*",
 ]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[[bin]]
-name = "rust64"
-test = false
-bench = false
-
 [[example]]
 name = "ocarina"
 path = "examples/ocarina/ocarina.rs"
 
-[dependencies]
+[dev-dependencies]
 panic-halt.workspace = true
 ufmt.workspace = true
 embedded-hal.workspace = true
