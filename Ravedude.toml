@@ -1,7 +1,6 @@
 [general]
 # if auto-detection is not working, you can hard-code a specific port here
 # (the port can also be passed via the RAVEDUDE_PORT environment variable)
-#port = "/dev/arduino/nano"
 board = "nano"
 
 # ravedude should open a serial console after flashing
