@@ -8,7 +8,7 @@ use joybus_rs_atmega328p::new_console;
 
 use joybus_rs::{JoybusConsoleExt, JoybusControllerState};
 
-use crate::notes::{BaseNote, BaseNoteSelection, Note, PwmOcarina};
+use crate::notes::{BaseNote, BaseNoteSelection, Note, NoteSelectionError, PwmOcarina};
 
 mod notes;
 
@@ -33,7 +33,7 @@ fn main() -> ! {
             continue;
         };
 
-        let note: Result<Note, u8> = (&n64_controller_state).try_into();
+        let note: Result<Note, NoteSelectionError> = (&n64_controller_state).try_into();
         match note {
             Ok(note) => {
                 pwm_ocarina.play_sound::<440>(notes::Sound::Modulation(
@@ -45,11 +45,12 @@ fn main() -> ! {
                 ));
                 led_pin.set_low();
             }
-            Err(0) => {
+            Err(NoteSelectionError::NoNoteToPlay) => {
                 pwm_ocarina.play_sound::<440>(notes::Sound::Nothing);
                 led_pin.set_low();
             }
-            Err(_) => {
+            Err(NoteSelectionError::TooManyNotesToPlay(amount)) => {
+                let _ = uwriteln!(serial, "Cannot play {} notes at the same time.", amount);
                 led_pin.set_high();
             }
         };
@@ -67,7 +68,7 @@ impl From<&JoybusControllerState> for BaseNoteSelection {
     }
 }
 impl TryFrom<&JoybusControllerState> for Note {
-    type Error = u8;
+    type Error = NoteSelectionError;
 
     fn try_from(value: &JoybusControllerState) -> Result<Self, Self::Error> {
         let selection: BaseNoteSelection = value.into();

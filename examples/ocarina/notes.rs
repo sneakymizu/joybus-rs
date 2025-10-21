@@ -153,12 +153,16 @@ impl BitAnd<u8> for BaseNoteSelection {
         self.selection & rhs
     }
 }
+pub enum NoteSelectionError {
+    TooManyNotesToPlay(u8),
+    NoNoteToPlay,
+}
 impl TryFrom<BaseNoteSelection> for BaseNote {
-    type Error = u8;
+    type Error = NoteSelectionError;
     fn try_from(value: BaseNoteSelection) -> Result<Self, Self::Error> {
         let ones = value.selection.count_ones() as u8;
         if ones > 1 {
-            Err(ones)
+            Err(NoteSelectionError::TooManyNotesToPlay(ones))
         } else if value.selection & (1 << BaseNote::A5 as u8) > 0 {
             Ok(BaseNote::A5)
         } else if value.selection & (1 << BaseNote::D5 as u8) > 0 {
@@ -170,7 +174,7 @@ impl TryFrom<BaseNoteSelection> for BaseNote {
         } else if value.selection & (1 << BaseNote::D6 as u8) > 0 {
             Ok(BaseNote::D6)
         } else {
-            Err(0)
+            Err(NoteSelectionError::NoNoteToPlay)
         }
     }
 }
@@ -187,7 +191,7 @@ impl From<BaseNote> for Note {
     }
 }
 impl TryFrom<BaseNoteSelection> for Note {
-    type Error = u8;
+    type Error = NoteSelectionError;
 
     fn try_from(value: BaseNoteSelection) -> Result<Self, Self::Error> {
         let base_note: BaseNote = value.try_into()?;
