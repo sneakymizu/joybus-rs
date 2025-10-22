@@ -3,14 +3,9 @@ name = "joybus-rs"
 version = "0.1.0"
 edition = "2021"
 
-[workspace]
-members = [
-    "crates/*",
-]
-
-[[example]]
-name = "ocarina"
-path = "examples/ocarina/main.rs"
+[dependencies]
+joybus-rs-core = {workspace=true}
+joybus-rs-atmega328p = {workspace = true, optional=true, features=["joybus"]}
 
 [dev-dependencies]
 panic-halt.workspace = true
@@ -19,6 +14,14 @@ embedded-hal.workspace = true
 arduino-hal.workspace = true
 joybus-rs-atmega328p.workspace = true
 joybus-rs-core.workspace = true
+
+[features]
+atmega328p=["dep:joybus-rs-atmega328p"]
+
+[workspace]
+members = [
+    "crates/*",
+]
 
 [workspace.dependencies]
 panic-halt = "0.2.0"
@@ -40,3 +43,7 @@ panic = "abort"
 codegen-units = 1
 lto = false  # setting this to anything higher screws up signal logic
 opt-level = "s"
+
+[[example]]
+name = "ocarina"
+path = "examples/ocarina/main.rs"
