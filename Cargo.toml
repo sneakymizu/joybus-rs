@@ -1,5 +1,5 @@
 [package]
-name = "rust64"
+name = "joybus-rs"
 version = "0.1.0"
 edition = "2021"
 
@@ -18,15 +18,15 @@ ufmt.workspace = true
 embedded-hal.workspace = true
 arduino-hal.workspace = true
 joybus-rs-atmega328p.workspace = true
-joybus-rs.workspace = true
+joybus-rs-core.workspace = true
 
 [workspace.dependencies]
 panic-halt = "0.2.0"
 ufmt = "0.2.0"
 embedded-hal = "1"
 arduino-hal = { git = "https://github.com/Rahix/avr-hal.git", rev="ravedude-0.1.8", features = ["arduino-nano"]}
-joybus-rs-atmega328p = {path="crates/joybus-atmega328p"}
-joybus-rs = {path="crates/joybus"}
+joybus-rs-atmega328p = {path="crates/joybus-rs-atmega328p"}
+joybus-rs-core = {path="crates/joybus-rs-core"}
 
 [profile.dev]
 panic = "abort"
