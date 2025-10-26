@@ -2,7 +2,7 @@ use arduino_hal::port::{
     mode::{Floating, Input},
     Pin, PinOps,
 };
-use joybus_rs::JoybusConsole;
+use joybus_rs_core::{JoybusConsole, JoybusError};
 
 use crate::{timer::TimerConfigurator, ReadError};
 mod boilerplate;
@@ -36,18 +36,18 @@ where
         &mut self,
         write_data: &[u8],
         read_data: &mut [u8],
-    ) -> Result<usize, joybus_rs::JoybusError> {
+    ) -> Result<usize, JoybusError> {
         self.pin
             .joybus_read(write_data, read_data)
             .map_err(|e| match e {
                 ReadError::OutOfMemory(bytes) => {
-                    joybus_rs::JoybusError::OutOfMemory(bytes as usize)
+                    JoybusError::OutOfMemory(bytes as usize)
                 }
                 ReadError::Timeout(timeout_value) => {
-                    joybus_rs::JoybusError::Timeout(timeout_value as usize)
+                    JoybusError::Timeout(timeout_value as usize)
                 }
                 ReadError::UnknownError(error_value) => {
-                    joybus_rs::JoybusError::ImplementationReportsError(error_value as usize)
+                    JoybusError::ImplementationReportsError(error_value as usize)
                 }
             })
     }

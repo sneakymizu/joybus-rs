@@ -6,7 +6,7 @@ use panic_halt as _;
 use arduino_hal::{default_serial, delay_ms};
 use joybus_rs_atmega328p::new_console;
 
-use joybus_rs::{JoybusConsoleExt, JoybusControllerState};
+use joybus_rs_core::{JoybusConsoleExt, JoybusControllerState};
 use ufmt::uwriteln;
 
 use crate::notes::{Note, Step};
