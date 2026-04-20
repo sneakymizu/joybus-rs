@@ -1,7 +1,6 @@
 #![no_std]
 #![no_main]
 #![feature(asm_experimental_arch)]
-#![feature(asm_const)]
 
 #[cfg(feature = "joybus")]
 mod joybus;

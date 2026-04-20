@@ -24,10 +24,10 @@ members = [
 ]
 
 [workspace.dependencies]
-panic-halt = "0.2.0"
+panic-halt = "1.0.0"
 ufmt = "0.2.0"
-embedded-hal = "1"
-arduino-hal = { git = "https://github.com/Rahix/avr-hal.git", rev="ravedude-0.1.8", features = ["arduino-nano"]}
+embedded-hal = "1.0"
+arduino-hal = { git = "https://github.com/Rahix/avr-hal.git", rev="e5c8f37fe48419956e722490a82b9ca9b9fc61a2", features = ["arduino-nano"]}
 joybus-rs-atmega328p = {path="crates/joybus-rs-atmega328p"}
 joybus-rs-core = {path="crates/joybus-rs-core"}
 

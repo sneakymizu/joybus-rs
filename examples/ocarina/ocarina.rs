@@ -74,9 +74,9 @@ pub trait OcarinaSoundGenerator {
 }
 impl OcarinaSoundGenerator for TC1 {
     fn configure_timer(&mut self) {
-        self.tccr1a
-            .write(|w| w.com1a().match_toggle().wgm1().bits(1));
-        self.tccr1b.write(|w| w.wgm1().bits(0b10).cs1().direct());
+        self.tccr1a()
+            .write(|w|unsafe{w.com1a().match_toggle().wgm1().bits(1)});
+        self.tccr1b().write(|w|unsafe{w.wgm1().bits(0b10).cs1().direct()});
     }
     fn set_frequency(&mut self, frequency: u16) {
         let top = if frequency == 0 {
@@ -85,7 +85,7 @@ impl OcarinaSoundGenerator for TC1 {
             // formula is for 16 bit phase and frequency correct timer
             (arduino_hal::DefaultClock::FREQ / (4 * frequency as u32)) as u16
         };
-        self.ocr1a.write(|w| w.bits(top));
+        self.ocr1a().write(|w| unsafe{w.bits(top)});
     }
 }
 
